@@ -45,7 +45,7 @@ void motion_sensor_handler() {
 
 void test_motion_sensor() {
   if (digitalRead(MOTION_SENSOR_PIN)) {
-    Serial.println("Start!");
+    Serial.println("Measuring");
     start_time = millis();
   } else {
     end_time = millis();

@@ -38,7 +38,7 @@ void loop(){
     String content = Serial.readString();
     Serial.println(content);
     udp.beginPacket(udpAddress,udpPort);
-    udp.printf("%s", content);
+    udp.printf("%s",content);
     udp.endPacket();
   }
   //Wait for 1 second
