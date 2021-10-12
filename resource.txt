@@ -2,3 +2,5 @@ Motion sensor:
 	datasheet: https://www.mpja.com/download/31227sc.pdf
 ESP32：
 	intro & install: https://lastminuteengineers.com/esp32-arduino-ide-tutorial/#google_vignette
+UDP:
+	linux: https://linuxhint.com/send_receive_udp_packets_linux_cli/
