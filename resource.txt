@@ -1,0 +1,2 @@
+Motion sensor:
+	datasheet: https://www.mpja.com/download/31227sc.pdf
