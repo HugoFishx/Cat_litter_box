@@ -1,3 +1,4 @@
+
 /*-----------------includes-----------------*/
 
 /*-----------------define-----------------*/
@@ -19,8 +20,8 @@ void setup() {
   /*set pin mode*/
   pinMode(MOTION_SENSOR_PIN, INPUT);
   /*set interrupt*/
-  // attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), test_motion_sensor, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), motion_sensor_handler, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), test_motion_sensor, CHANGE);
+  // attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), motion_sensor_handler, CHANGE);
   /*misc*/
   Serial.begin(9600);
 }
