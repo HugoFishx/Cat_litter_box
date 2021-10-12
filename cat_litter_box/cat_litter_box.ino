@@ -3,19 +3,25 @@
 /*-----------------define-----------------*/
 #define MOTION_SENSOR_PIN 2 // only 2, 3 can be interrupts
 
+/*-----------------typedef and struct-----------------*/
+struct poop_event {
+  int cat_id;
+  int duration;
+};
+
 /*-----------------global var-----------------*/
 unsigned long start_time;
 unsigned long end_time;
 
 void setup() {
-  /***init peripherals: wifi, RFID reader, motion sensor, SD card***/
+  /*init peripherals: wifi, RFID reader, motion sensor, SD card*/
 
-  /***set pin mode***/
+  /*set pin mode*/
   pinMode(MOTION_SENSOR_PIN, INPUT);
-  /***set interrupt***/
+  /*set interrupt*/
   // attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), test_motion_sensor, CHANGE);
   attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), motion_sensor_handler, CHANGE);
-  /***misc***/
+  /*misc*/
   Serial.begin(9600);
 }
 
@@ -25,11 +31,11 @@ void loop() {
 /*-----------------functions-----------------*/
 void motion_sensor_handler() {
   if (digitalRead(MOTION_SENSOR_PIN)) { // check whether enter or leave
-    /***enter handler***/
+    /*enter handler*/
     RFID_read();
     start_time = millis(); // can also record time in real word. may need internet
   } else {
-    /***leave handler***/
+    /*leave handler*/
     end_time = millis();
     SDcard_store();
   }
