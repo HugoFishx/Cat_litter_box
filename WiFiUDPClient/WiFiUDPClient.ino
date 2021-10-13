@@ -36,7 +36,7 @@ void loop(){
   if(connected && (Serial.available() > 0 )){
     //Send a packet
     String content = Serial.readString();
-    Serial.println(content);
+    // Serial.println(content);
     udp.beginPacket(udpAddress,udpPort);
     udp.printf("%s",content);
     udp.endPacket();

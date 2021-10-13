@@ -4,3 +4,6 @@ ESP32：
 	intro & install: https://lastminuteengineers.com/esp32-arduino-ide-tutorial/#google_vignette
 UDP:
 	linux: https://linuxhint.com/send_receive_udp_packets_linux_cli/
+SD card:
+	https://learn.adafruit.com/adafruit-micro-sd-breakout-board-card-tutorial?view=all
+	https://www.arduino.cc/en/Tutorial/LibraryExamples/ReadWrite
