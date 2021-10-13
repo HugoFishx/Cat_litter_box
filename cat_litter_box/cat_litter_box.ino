@@ -34,6 +34,7 @@ void setup() {
 }
 
 void loop() {
+  /*Check cmd via serial, can be replaced by WiFi to receive remote instruction*/
   if(Serial.available()) {
     String cmd = Serial.readString();
     Serial.println("Command received: " + cmd);
@@ -60,10 +61,12 @@ void motion_sensor_handler() {
 void send_data() {
   Serial.println("Send request received!");
   SDcard_read();
+  //TODO: send latest data
   return;
 }
 
 int RFID_read() {
+  //TODO: implement RFID tag read
   return 0;
 }
 
@@ -104,7 +107,7 @@ void SDcard_write() {
 void test_motion_sensor() {
   test_WiFi_connection();
   if (digitalRead(MOTION_SENSOR_PIN)) {
-    Serial.println("Measuring");
+    Serial.println("Measuring!");
     start_time = millis();
   } else {
     end_time = millis();
