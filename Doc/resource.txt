@@ -7,3 +7,5 @@ UDP:
 SD card:
 	https://learn.adafruit.com/adafruit-micro-sd-breakout-board-card-tutorial?view=all
 	https://www.arduino.cc/en/Tutorial/LibraryExamples/ReadWrite
+Low Power:
+	https://github.com/rocketscream/Low-Power

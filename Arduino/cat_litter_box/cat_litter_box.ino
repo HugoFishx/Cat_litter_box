@@ -2,9 +2,11 @@
 #include <SPI.h>
 #include <SD.h>
 #include <SoftwareSerial.h>
+#include <LowPower.h>
 
 /*-----------------define-----------------*/
 #define MOTION_SENSOR_PIN 2 // only 2, 3 can be interrupts
+#define WAKE_UP_PIN 3
 
 /*-----------------typedef and struct-----------------*/
 struct poop_event {
@@ -104,6 +106,10 @@ void SDcard_write() {
 }
 
 /*-----------------------------test-----------------------------*/
+void wake_up_handler() {
+  Serial.println("Awaken!");
+}
+
 void test_motion_sensor() {
   test_WiFi_connection();
   if (digitalRead(MOTION_SENSOR_PIN)) {
@@ -111,8 +117,15 @@ void test_motion_sensor() {
     start_time = millis();
   } else {
     end_time = millis();
-    Serial.println((end_time-start_time)/1000);
+    Serial.println((end_time-start_time)/1000); 
+    go_to_sleep();
   }
+}
+
+void go_to_sleep() {
+  Serial.println("Going to sleep!");
+  Serial.flush(); // make sure all data in serial has been sent out
+  LowPower.powerStandby(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
 }
 
 void test_WiFi_connection() {
