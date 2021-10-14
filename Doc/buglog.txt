@@ -1,0 +1,6 @@
+Arduino String format in UDP printf:
+	Problem: Tried to use UDP.printf("%s", my_string). Does not work when number of bytes is latger than 11.
+	Solution: Use UDP.write() instead and typecast string to char* with c_str()
+Serial:
+	Problem: Serial does not finish printing before sleep
+	Solution: Use Seria.flush() to make sure all data has been transmitted or received

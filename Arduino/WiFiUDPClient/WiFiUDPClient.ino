@@ -16,13 +16,14 @@ const char * networkPswd = "19981222";
 // either use the ip address of the server or 
 // a network broadcast address
 const char * udpAddress = "192.168.0.136";
-const int udpPort = 9998;
+const int udpPort = 9999;
 
 //Are we currently connected?
 boolean connected = false;
 
 //The udp library class
 WiFiUDP udp;
+
 
 void setup(){
   // Initilize hardware serial:
@@ -36,9 +37,10 @@ void loop(){
   if(connected && (Serial.available() > 0 )){
     //Send a packet
     String content = Serial.readString();
-    // Serial.println(content);
+    Serial.println(content);
+    const char* msg = content.c_str();
     udp.beginPacket(udpAddress,udpPort);
-    udp.printf("%s",content);
+    udp.write((const uint8_t*)msg, strlen(msg));
     udp.endPacket();
   }
   //Wait for 1 second

@@ -62,7 +62,7 @@ void motion_sensor_handler() {
 
 void send_data() {
   Serial.println("Send request received!");
-  SDcard_read();
+  // SDcard_read();
   //TODO: send latest data
   return;
 }
@@ -106,9 +106,6 @@ void SDcard_write() {
 }
 
 /*-----------------------------test-----------------------------*/
-void wake_up_handler() {
-  Serial.println("Awaken!");
-}
 
 void test_motion_sensor() {
   test_WiFi_connection();
@@ -129,5 +126,6 @@ void go_to_sleep() {
 }
 
 void test_WiFi_connection() {
-  WiFi_serial.println("Can u see?"); // display this message in UDP client
+  WiFi_serial.print("System triggered at:"); // display this message in UDP client
+  WiFi_serial.println(millis());
 }
