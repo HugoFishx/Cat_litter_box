@@ -9,7 +9,7 @@ from tornado.options import define, options
 
 define("port", type=int, default=12345, help="run on the given port")
 
-status = "Here is the interface of cat litter box+! The data received is:\n"
+status = "Here is the interface of cat litter box+!\nThe data received is:\n"
 
 
 
@@ -18,7 +18,7 @@ def receive_packet():
         data, addr = sck.recvfrom(1024)
         print(data)
         global status
-        status += str(data)[2:-5] + "\n"
+        status += str(data)[2:-3] + "\n"
 
 class index_handler(tornado.web.RequestHandler):
     def get(self):

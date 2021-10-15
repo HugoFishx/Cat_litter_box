@@ -37,10 +37,17 @@ void loop(){
   if(connected && (Serial.available() > 0 )){
     //Send a packet
     String content = Serial.readString();
+    if(content == "Init\r\n") {
+      Serial.print("WiFi connected! IP address: ");
+      Serial.println(WiFi.localIP()); 
+      Serial.print("Server address: ");
+      Serial.println(udpAddress);  
+      return;
+    }
     Serial.println(content);
     const char* msg = content.c_str();
     udp.beginPacket(udpAddress,udpPort);
-    udp.write((const uint8_t*)msg, strlen(msg));
+    Serial.println(udp.write((const uint8_t*)msg, strlen(msg)));
     udp.endPacket();
   }
   //Wait for 1 second
@@ -67,7 +74,9 @@ void WiFiEvent(WiFiEvent_t event){
       case ARDUINO_EVENT_WIFI_STA_GOT_IP:
           //When connected set 
           Serial.print("WiFi connected! IP address: ");
-          Serial.println(WiFi.localIP());  
+          Serial.print(WiFi.localIP());
+          Serial.print("Server address: ");
+          Serial.println(udpAddress);  
           //initializes the UDP state
           //This initializes the transfer buffer
           udp.begin(WiFi.localIP(),udpPort);
