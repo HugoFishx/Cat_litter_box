@@ -1,10 +1,10 @@
-/*-----------------includes-----------------*/
+/*--------------------------------includes--------------------------------*/
 #include <SPI.h>
 #include <SD.h>
 #include <SoftwareSerial.h>
 #include <LowPower.h>
 
-/*-----------------define-----------------*/
+/*--------------------------------define--------------------------------*/
 #define MOTION_SENSOR_PIN 2 // only 2, 3 can be interrupts
 #define WAKE_UP_PIN 3
 #define WiFi_SERIAL_RX 6
@@ -13,17 +13,20 @@
 #define RFID_SERIAL_TX 7
 #define RFID_READ_DELAY 1000
 #define DEBUG_MODE 1
+#define WiFi_CHIPSELECT 10
+#define WiFi_MOSI 11
+#define WiFi_MISO 12
+#define WiFi_CLK 13
 
-/*-----------------typedef and struct-----------------*/
+/*--------------------------------typedef and struct--------------------------------*/
 struct poop_event {
   unsigned cat_id;
   int duration;
 };
 
-/*-----------------global var-----------------*/
+/*--------------------------------global var--------------------------------*/
 unsigned long start_time;
 unsigned long end_time;
-const int chipSelect = 10;
 
 // RFID
 const int BUFFER_SIZE = 14; // RFID DATA FRAME FORMAT: 1byte head (value: 2), 10byte data (2byte version + 8byte tag), 2byte checksum, 1byte tail (value: 3)
@@ -37,7 +40,7 @@ struct poop_event new_event;
 SoftwareSerial WiFi_serial (WiFi_SERIAL_RX, WiFi_SERIAL_TX);
 SoftwareSerial RFID_serial (RFID_SERIAL_RX, RFID_SERIAL_TX);
 
-
+/*--------------------------------main--------------------------------*/
 void setup() {
   /*misc.*/
   Serial.begin(9600);
@@ -57,6 +60,29 @@ void loop() {
   // Check cmd via serial, can be replaced by WiFi to receive remote instruction
   cmd_handler();
 }
+
+/*--------------------------------interuppt handler--------------------------------*/
+// Handle motino sensor interrupt both high and low; record tag, duration in SD card
+void motion_sensor_handler() {
+  if (digitalRead(MOTION_SENSOR_PIN)) { // check whether enter or leave
+    /*enter handler*/
+    debug_print("Cat enter!");
+    start_time = millis(); // can also record time in real word. may need internet
+    RFID_serial.listen(); // only one software serial can used at the same time
+    new_event.cat_id = RFID_read();
+    debug_print("ID acquired!");
+    WiFi_serial.listen();
+  } else {
+    /*leave handler*/
+    debug_print("Cat left!");
+    end_time = millis();
+    new_event.duration = end_time - start_time;
+    SDcard_write(new_event);
+    // go_to_sleep(); need another interuppt from wifi
+  }
+  return;
+}
+
 /*-----------------------------test-----------------------------*/
 // Interrupt handler; measure motion sensor duration;
 void test_motion_sensor() {
@@ -67,7 +93,7 @@ void test_motion_sensor() {
   } else {
     end_time = millis();
     debug_print(String((end_time-start_time)/1000)); 
-    go_to_sleep();
+    // go_to_sleep();
   }
 }
 
@@ -106,28 +132,6 @@ void send_data() {
   return;
 }
 
-/*--------------------------------interuppt handler--------------------------------*/
-// Handle motino sensor interrupt both high and low; record tag, duration in SD card
-void motion_sensor_handler() {
-  if (digitalRead(MOTION_SENSOR_PIN)) { // check whether enter or leave
-    /*enter handler*/
-    debug_print("Cat enter!");
-    start_time = millis(); // can also record time in real word. may need internet
-    RFID_serial.listen(); // only one software serial can used at the same time
-    new_event.cat_id = RFID_read();
-    debug_print("ID acquired!");
-    WiFi_serial.listen();
-  } else {
-    /*leave handler*/
-    debug_print("Cat left!");
-    end_time = millis();
-    new_event.duration = end_time - start_time;
-    SDcard_write(new_event);
-    // go_to_sleep(); need another interuppt from wifi
-  }
-  return;
-}
-
 /*--------------------------------WiFi functions--------------------------------*/
 // Get basic information of wifi
 void WiFi_init() {
@@ -142,7 +146,7 @@ void WiFi_init() {
 // Get basic information of SD card
 void SD_card_init() {
   debug_print("Initializing SD card...");
-  if (!SD.begin(chipSelect)) {
+  if (!SD.begin(WiFi_CHIPSELECT)) {
     debug_print("Card failed, or not present");
     while (1);
   }
@@ -180,7 +184,7 @@ void SDcard_write(struct poop_event event_to_be_written) {
 }
 
 /*--------------------------------RFID functions--------------------------------*/
-// Read RFID. Current state is based on the number received. Conditions checked in the end.
+// Read RFID. State is based on the number received currently. Conditions checked in the end.
 unsigned RFID_read() {
   debug_print("Start reading RFID!");
   uint8_t buffer[BUFFER_SIZE]; // used to store an incoming data frame 
@@ -296,3 +300,8 @@ long hexstr_to_value(char *str, unsigned int length) { // converts a hexadecimal
   return value;
 }
 
+/*--------------------------------Low power--------------------------------*/
+void go_to_sleep() {
+  debug_print("Going to sleep!");
+  LowPower.powerStandby(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
+}
