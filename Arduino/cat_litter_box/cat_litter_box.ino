@@ -34,7 +34,6 @@ const int CHECKSUM_SIZE = 2; // 2byte checksum
 
 struct poop_event new_event;
 
-/*----------------global object-----------------*/
 SoftwareSerial WiFi_serial (WiFi_SERIAL_RX, WiFi_SERIAL_TX);
 SoftwareSerial RFID_serial (RFID_SERIAL_RX, RFID_SERIAL_TX);
 
@@ -44,7 +43,6 @@ void setup() {
   Serial.begin(9600);
   WiFi_serial.begin(9600);
   RFID_serial.begin(9600);
-  
   /*init peripherals: wifi, RFID reader, motion sensor, SD card*/
   SD_card_init();
   WiFi_init();
@@ -56,7 +54,41 @@ void setup() {
 }
 
 void loop() {
-  /*Check cmd via serial, can be replaced by WiFi to receive remote instruction*/
+  // Check cmd via serial, can be replaced by WiFi to receive remote instruction
+  cmd_handler();
+}
+/*-----------------------------test-----------------------------*/
+// Interrupt handler; measure motion sensor duration;
+void test_motion_sensor() {
+  test_WiFi_connection();
+  if (digitalRead(MOTION_SENSOR_PIN)) {
+    debug_print("Measuring!");
+    start_time = millis();
+  } else {
+    end_time = millis();
+    debug_print(String((end_time-start_time)/1000)); 
+    go_to_sleep();
+  }
+}
+
+// Send message via serial to wifi
+void test_WiFi_connection() {
+  WiFi_serial.print("System triggered at:"); // display this message in UDP client
+  WiFi_serial.println(millis());
+}
+
+// Wrapper of print
+void debug_print(String str) {
+  if(DEBUG_MODE) {
+    Serial.println(str);
+    Serial.flush(); // make sure all data in serial has been sent out
+  }
+}
+
+/*--------------------------------command handlers--------------------------------*/
+// Handle command from serial
+void cmd_handler() {
+  // TODO: changed to wifi serial when bidirection is enabled
   if(Serial.available()) {
     String cmd = Serial.readString();
     debug_print("Command received: " + cmd);
@@ -66,7 +98,16 @@ void loop() {
   }
 }
 
-/*-----------------functions-----------------*/
+// Send whole txt via serial
+void send_data() {
+  debug_print("Send request received!");
+  SDcard_read(); // TODO: decouple SD read and send
+  //TODO: send latest data
+  return;
+}
+
+/*--------------------------------interuppt handler--------------------------------*/
+// Handle motino sensor interrupt both high and low; record tag, duration in SD card
 void motion_sensor_handler() {
   if (digitalRead(MOTION_SENSOR_PIN)) { // check whether enter or leave
     /*enter handler*/
@@ -82,9 +123,13 @@ void motion_sensor_handler() {
     end_time = millis();
     new_event.duration = end_time - start_time;
     SDcard_write(new_event);
+    // go_to_sleep(); need another interuppt from wifi
   }
   return;
 }
+
+/*--------------------------------WiFi functions--------------------------------*/
+// Get basic information of wifi
 void WiFi_init() {
   WiFi_serial.listen();
   WiFi_serial.println("Init");
@@ -93,14 +138,49 @@ void WiFi_init() {
   debug_print(WiFi_serial.readString());
 }
 
-void send_data() {
-  debug_print("Send request received!");
-  SDcard_read();
-  //TODO: send latest data
+/*--------------------------------SD card functions--------------------------------*/
+// Get basic information of SD card
+void SD_card_init() {
+  debug_print("Initializing SD card...");
+  if (!SD.begin(chipSelect)) {
+    debug_print("Card failed, or not present");
+    while (1);
+  }
+  Serial.println("card initialized.");
+}
+
+// Read from datalog.txt in SD card
+void SDcard_read() {
+  File data_log = SD.open("datalog.txt");
+  if(data_log) {
+    debug_print("Transmitting data");
+    while(data_log.available()) {
+      WiFi_serial.write(data_log.read()); // send via wifi
+    }
+    data_log.close();
+  } else {
+    debug_print("error opening file");
+  }
+}
+
+// Write new data to datalog.txt
+void SDcard_write(struct poop_event event_to_be_written) {
+  File data_log = SD.open("datalog.txt", FILE_WRITE);
+  if(data_log) {
+    data_log.print("ID: ");
+    data_log.print(event_to_be_written.cat_id);
+    data_log.print("Time: ");
+    data_log.println(event_to_be_written.duration);
+    data_log.close();
+  } else {
+    debug_print("error opening file");
+  }
+  debug_print("Data Recorded!");
   return;
 }
 
-/*RFID*/
+/*--------------------------------RFID functions--------------------------------*/
+// Read RFID. Current state is based on the number received. Conditions checked in the end.
 unsigned RFID_read() {
   debug_print("Start reading RFID!");
   uint8_t buffer[BUFFER_SIZE]; // used to store an incoming data frame 
@@ -145,6 +225,8 @@ unsigned RFID_read() {
   
   return 0;
 }
+
+// Helper of RFID
 unsigned extract_tag(uint8_t* buffer) {
     uint8_t msg_head = buffer[0];
     uint8_t *msg_data = buffer + 1; // 10 byte => data contains 2byte version + 8byte tag
@@ -203,6 +285,7 @@ unsigned extract_tag(uint8_t* buffer) {
     return tag;
 }
 
+// Helper of RFID
 long hexstr_to_value(char *str, unsigned int length) { // converts a hexadecimal value (encoded as ASCII string) to a numeric value
   char* copy = malloc((sizeof(char) * length) + 1); 
   memcpy(copy, str, sizeof(char) * length);
@@ -213,71 +296,3 @@ long hexstr_to_value(char *str, unsigned int length) { // converts a hexadecimal
   return value;
 }
 
-
-void SD_card_init() {
-  debug_print("Initializing SD card...");
-  if (!SD.begin(chipSelect)) {
-    debug_print("Card failed, or not present");
-    while (1);
-  }
-  Serial.println("card initialized.");
-}
-
-void SDcard_read() {
-  File data_log = SD.open("datalog.txt");
-  if(data_log) {
-    debug_print("Transmitting data");
-    while(data_log.available()) {
-      WiFi_serial.write(data_log.read()); // send via wifi
-    }
-    data_log.close();
-  } else {
-    debug_print("error opening file");
-  }
-}
-
-void SDcard_write(struct poop_event event_to_be_written) {
-  File data_log = SD.open("datalog.txt", FILE_WRITE);
-  if(data_log) {
-    data_log.print("ID: ");
-    data_log.print(event_to_be_written.cat_id);
-    data_log.print("Time: ");
-    data_log.println(event_to_be_written.duration);
-    data_log.close();
-  } else {
-    debug_print("error opening file");
-  }
-  debug_print("Data Recorded!");
-  return;
-}
-
-/*-----------------------------test-----------------------------*/
-
-void test_motion_sensor() {
-  test_WiFi_connection();
-  if (digitalRead(MOTION_SENSOR_PIN)) {
-    debug_print("Measuring!");
-    start_time = millis();
-  } else {
-    end_time = millis();
-    debug_print(String((end_time-start_time)/1000)); 
-    go_to_sleep();
-  }
-}
-
-void go_to_sleep() {
-  debug_print("Going to sleep!");
-  LowPower.powerStandby(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
-}
-
-void test_WiFi_connection() {
-  WiFi_serial.print("System triggered at:"); // display this message in UDP client
-  WiFi_serial.println(millis());
-}
-
-void debug_print(String str) {
-  if(DEBUG_MODE) {
-    Serial.println(str);
-    Serial.flush(); // make sure all data in serial has been sent out
-  }
-}
