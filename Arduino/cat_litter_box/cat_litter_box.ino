@@ -13,7 +13,7 @@
 #define WiFi_SERIAL_TX 5
 #define RFID_SERIAL_RX 8
 #define RFID_SERIAL_TX 7
-#define RFID_READ_DELAY 100000000
+#define RFID_READ_DELAY 100000
 #define DEBUG_MODE 1
 #define WiFi_CHIPSELECT 10
 #define WiFi_MOSI 11
@@ -60,6 +60,7 @@ void setup() {
 }
 
 void loop() {
+  RFID_read();
   // Check cmd via serial, can be replaced by WiFi to receive remote instruction
   cmd_handler();
 }
@@ -189,6 +190,7 @@ void SDcard_write(struct poop_event event_to_be_written) {
 /*--------------------------------RFID functions--------------------------------*/
 // Read RFID. State is based on the number received currently. Conditions checked in the end.
 unsigned RFID_read() {
+  RFID_serial.listen();
   debug_print("Start reading RFID!");
   uint8_t buffer[BUFFER_SIZE]; // used to store an incoming data frame 
   int buffer_index = 0;
