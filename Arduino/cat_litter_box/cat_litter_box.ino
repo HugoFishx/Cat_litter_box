@@ -42,6 +42,9 @@ struct poop_event new_event;
 SoftwareSerial WiFi_serial (WiFi_SERIAL_RX, WiFi_SERIAL_TX);
 SoftwareSerial RFID_serial (8, 7);
 
+int flag = 0;
+unsigned tag;
+
 /*--------------------------------main--------------------------------*/
 void setup() {
   /*misc.*/
@@ -57,12 +60,18 @@ void setup() {
   // attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), test_motion_sensor, CHANGE);
   // attachInterrupt(digitalPinToInterrupt(WiFi_PIN), WiFi_handler, RISING);
   attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), motion_sensor_handler, CHANGE);
+
 }
 
 void loop() {
-  RFID_read();
+  if(flag) {
+    tag = RFID_read();
+    debug_print("ID acquired!");
+    flag = 0;
+  }
   // Check cmd via serial, can be replaced by WiFi to receive remote instruction
   cmd_handler();
+  WiFi_cmd_handler();
 }
 
 /*--------------------------------interuppt handler--------------------------------*/
@@ -72,14 +81,12 @@ void motion_sensor_handler() {
     /*enter handler*/
     debug_print("Cat enter!");
     start_time = millis(); // can also record time in real word. may need internet
-    RFID_serial.listen(); // only one software serial can used at the same time
-    new_event.cat_id = RFID_read();
-    debug_print("ID acquired!");
-    WiFi_serial.listen();
+    flag = 1;
   } else {
     /*leave handler*/
     debug_print("Cat left!");
     end_time = millis();
+    new_event.cat_id = tag;
     new_event.duration = end_time - start_time;
     SDcard_write(new_event);
     // go_to_sleep(); need another interuppt from wifi
@@ -123,6 +130,17 @@ void cmd_handler() {
     String cmd = Serial.readString();
     debug_print("Command received: " + cmd);
     if(cmd == "Send\n") {
+      send_data();
+    }
+  }
+}
+
+void WiFi_cmd_handler() {
+  // TODO: changed to wifi serial when bidirection is enabled
+  if(WiFi_serial.available()) {
+    String cmd = WiFi_serial.readString();
+    debug_print("Command received: " + cmd);
+    if(cmd[0] == '1') {
       send_data();
     }
   }
@@ -221,6 +239,7 @@ unsigned RFID_read() {
       if (call_extract_tag == true) {
         if (buffer_index == BUFFER_SIZE) {
           unsigned tag = extract_tag(buffer);
+          WiFi_serial.listen();
           return tag;
         } else { // something is wrong... start again looking for preamble (value: 2)
           buffer_index = 0;
@@ -232,7 +251,7 @@ unsigned RFID_read() {
       debug_print("No signal");     
     }
   }
-  
+  WiFi_serial.listen();
   return 0;
 }
 

@@ -12,6 +12,8 @@
 const char * networkName = "Hugo_device";
 const char * networkPswd = "19981222";
 
+char read_buffer[255];
+
 //IP address to send UDP data to:
 // either use the ip address of the server or 
 // a network broadcast address
@@ -50,6 +52,18 @@ void loop(){
     Serial.println(udp.write((const uint8_t*)msg, strlen(msg)));
     udp.endPacket();
   }
+  int packetSize = udp.parsePacket();
+  if(packetSize) {
+    int len = udp.read(read_buffer, 255);
+    if(len) {
+      read_buffer[len] = 0;
+    }
+    Serial.println(read_buffer);
+    if(read_buffer[0] == '1') {
+      Serial.println("1");
+    }
+  }
+
   //Wait for 1 second
   delay(1000);
 }

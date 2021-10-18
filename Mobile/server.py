@@ -4,12 +4,16 @@ import tornado.web
 import tornado.options
 import socket
 import threading
+import time
+import re
 
 from tornado.options import define, options
 
 define("port", type=int, default=12345, help="run on the given port")
 
 status = "Here is the interface of cat litter box+!\nThe data received is:\n"
+
+REMOTE_IP = "192.168.0.218"
 
 
 
@@ -18,7 +22,7 @@ def receive_packet():
         data, addr = sck.recvfrom(1024)
         print(data)
         global status
-        status += str(data)[2:-3] + "\n"
+        status = str(data)[2:-1].replace("\\r", "").replace("\\n", "\n") # weird escape
 
 class index_handler(tornado.web.RequestHandler):
     def get(self):
@@ -26,6 +30,8 @@ class index_handler(tornado.web.RequestHandler):
 
 class request_handler(tornado.web.RequestHandler):
     def get(self):
+        sck.sendto(b"1_request", (REMOTE_IP, 9999))
+        time.sleep(5)
         self.render('index.html', status=status)
 
 settings = {"debug": True,}
