@@ -1,3 +1,5 @@
+// TODO: WiFi interrupt and serial receive on Arduino; UDP receive on wifi; Transmition of data
+
 /*--------------------------------includes--------------------------------*/
 #include <SPI.h>
 #include <SD.h>
@@ -6,12 +8,12 @@
 
 /*--------------------------------define--------------------------------*/
 #define MOTION_SENSOR_PIN 2 // only 2, 3 can be interrupts
-#define WAKE_UP_PIN 3
+#define WiFi_PIN 3
 #define WiFi_SERIAL_RX 6
 #define WiFi_SERIAL_TX 5
 #define RFID_SERIAL_RX 8
 #define RFID_SERIAL_TX 7
-#define RFID_READ_DELAY 1000
+#define RFID_READ_DELAY 100000000
 #define DEBUG_MODE 1
 #define WiFi_CHIPSELECT 10
 #define WiFi_MOSI 11
@@ -38,7 +40,7 @@ const int CHECKSUM_SIZE = 2; // 2byte checksum
 struct poop_event new_event;
 
 SoftwareSerial WiFi_serial (WiFi_SERIAL_RX, WiFi_SERIAL_TX);
-SoftwareSerial RFID_serial (RFID_SERIAL_RX, RFID_SERIAL_TX);
+SoftwareSerial RFID_serial (8, 7);
 
 /*--------------------------------main--------------------------------*/
 void setup() {
@@ -52,7 +54,8 @@ void setup() {
   /*set pin mode*/
   pinMode(MOTION_SENSOR_PIN, INPUT);
   /*set interrupt*/
-  //attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), test_motion_sensor, CHANGE);
+  // attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), test_motion_sensor, CHANGE);
+  // attachInterrupt(digitalPinToInterrupt(WiFi_PIN), WiFi_handler, RISING);
   attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), motion_sensor_handler, CHANGE);
 }
 
@@ -64,7 +67,7 @@ void loop() {
 /*--------------------------------interuppt handler--------------------------------*/
 // Handle motino sensor interrupt both high and low; record tag, duration in SD card
 void motion_sensor_handler() {
-  if (digitalRead(MOTION_SENSOR_PIN)) { // check whether enter or leave
+  if(digitalRead(MOTION_SENSOR_PIN)) { // check whether enter or leave
     /*enter handler*/
     debug_print("Cat enter!");
     start_time = millis(); // can also record time in real word. may need internet
@@ -87,7 +90,7 @@ void motion_sensor_handler() {
 // Interrupt handler; measure motion sensor duration;
 void test_motion_sensor() {
   test_WiFi_connection();
-  if (digitalRead(MOTION_SENSOR_PIN)) {
+  if(digitalRead(MOTION_SENSOR_PIN)) {
     debug_print("Measuring!");
     start_time = millis();
   } else {
@@ -107,7 +110,7 @@ void test_WiFi_connection() {
 void debug_print(String str) {
   if(DEBUG_MODE) {
     Serial.println(str);
-    Serial.flush(); // make sure all data in serial has been sent out
+    //Serial.flush(); // make sure all data in serial has been sent out
   }
 }
 
@@ -137,7 +140,7 @@ void send_data() {
 void WiFi_init() {
   WiFi_serial.listen();
   WiFi_serial.println("Init");
-  WiFi_serial.flush();
+  // WiFi_serial.flush();
   while(!WiFi_serial.available()) {}
   debug_print(WiFi_serial.readString());
 }
@@ -195,7 +198,6 @@ unsigned RFID_read() {
   while(!call_extract_tag && ( count < RFID_READ_DELAY)) {
     count++;
     if (RFID_serial.available() > 0){
-      
       int ssvalue = RFID_serial.read(); // read 
       if (ssvalue == -1) { // no data was read
         continue;
@@ -224,7 +226,9 @@ unsigned RFID_read() {
           continue;
         }
       }    
-    }     
+    } else {
+      debug_print("No signal");     
+    }
   }
   
   return 0;

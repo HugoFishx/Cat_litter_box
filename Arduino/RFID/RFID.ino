@@ -6,21 +6,26 @@ const int DATA_VERSION_SIZE = 2; // 2byte version (actual meaning of these two b
 const int DATA_TAG_SIZE = 8; // 8byte tag
 const int CHECKSUM_SIZE = 2; // 2byte checksum
 
-SoftwareSerial ssrfid = SoftwareSerial(6,8); 
+SoftwareSerial x = SoftwareSerial(6,5);
+SoftwareSerial ssrfid = SoftwareSerial(8,7); 
 
 uint8_t buffer[BUFFER_SIZE]; // used to store an incoming data frame 
 int buffer_index = 0;
 
 void setup() {
  Serial.begin(9600); 
- 
+
+ x.begin(9600);
  ssrfid.begin(9600);
+
  ssrfid.listen(); 
  
  Serial.println("INIT DONE");
+  x.listen();
 }
 
 void loop() {
+  ssrfid.listen();
   if (ssrfid.available() > 0){
     bool call_extract_tag = false;
     
@@ -50,6 +55,8 @@ void loop() {
         return;
       }
     }    
+  } else {
+    Serial.println("No signal");
   }    
 }
 
