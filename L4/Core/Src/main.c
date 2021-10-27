@@ -52,7 +52,22 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+/*--------------------------------global var--------------------------------*/
+unsigned long start_time;
+unsigned long end_time;
 
+// RFID
+const int BUFFER_SIZE = 14; // RFID DATA FRAME FORMAT: 1byte head (value: 2), 10byte data (2byte version + 8byte tag), 2byte checksum, 1byte tail (value: 3)
+const int DATA_SIZE = 10; // 10byte data (2byte version + 8byte tag)
+const int DATA_VERSION_SIZE = 2; // 2byte version (actual meaning of these two bytes may vary)
+const int DATA_TAG_SIZE = 8; // 8byte tag
+const int CHECKSUM_SIZE = 2; // 2byte checksum
+
+
+struct poop_event new_event;
+
+int flag = 0;
+unsigned tag;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -493,11 +508,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  /*Configure GPIO pin : MS_Pin */
+  GPIO_InitStruct.Pin = MS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(MS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : BATTERY_LOW_LED_Pin WIFI_EN_Pin */
   GPIO_InitStruct.Pin = BATTERY_LOW_LED_Pin|WIFI_EN_Pin;

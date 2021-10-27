@@ -37,8 +37,20 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+/*--------------------------------typedef and struct--------------------------------*/
+struct poop_event {
+  unsigned cat_id;
+  int duration;
+};
 /* USER CODE END ET */
+/*--------------------------------global var--------------------------------*/
+extern unsigned long start_time;
+extern unsigned long end_time;
+extern struct poop_event new_event;
+
+extern int flag;
+extern unsigned tag;
+
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
@@ -61,6 +73,8 @@ void Error_Handler(void);
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
 #define B1_EXTI_IRQn EXTI15_10_IRQn
+#define MS_Pin GPIO_PIN_0
+#define MS_GPIO_Port GPIOA
 #define USART_TX_Pin GPIO_PIN_2
 #define USART_TX_GPIO_Port GPIOA
 #define USART_RX_Pin GPIO_PIN_3
