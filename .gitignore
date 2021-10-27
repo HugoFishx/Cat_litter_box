@@ -1,3 +1,4 @@
 L4/MDK-ARM
 *.log
 *.ini
+L4/.metadata/.ide.log
