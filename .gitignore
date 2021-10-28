@@ -1,1 +1,2 @@
-L4/MDK-ARM
+./L4/MDK-ARM/Code/*
+./L4/MDK-ARM/*
