@@ -124,7 +124,7 @@ int main(void)
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if(GPIO_Pin == GPIO_PIN_9) { // Pin enabled in pinout is PC9
+	if(GPIO_Pin == GPIO_PIN_9) { // Pin enabled in pinout is PA9
 		printf("Here is the ISR!");
 	}
 }
