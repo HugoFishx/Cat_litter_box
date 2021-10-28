@@ -123,6 +123,12 @@ int main(void)
   /* USER CODE END 3 */
 }
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if(GPIO_Pin == GPIO_PIN_9) { // Pin enabled in pinout is PC9
+		printf("Here is the ISR!");
+	}
+}
+
 /**
   * @brief System Clock Configuration
   * @retval None
