@@ -5,8 +5,8 @@ ESP32：
 UDP:
 	linux: https://linuxhint.com/send_receive_udp_packets_linux_cli/
 SD card:
-	https://learn.adafruit.com/adafruit-micro-sd-breakout-board-card-tutorial?view=all
-	https://www.arduino.cc/en/Tutorial/LibraryExamples/ReadWrite
+	pin: https://learn.adafruit.com/adafruit-micro-sd-breakout-board-card-tutorial?view=all
+	code example: https://www.arduino.cc/en/Tutorial/LibraryExamples/ReadWrite
 	https://blog.csdn.net/m0_37777700/article/details/103537330
 Low Power:
 	https://github.com/rocketscream/Low-Power
@@ -14,3 +14,5 @@ STM32-interrupt:
 	https://deepbluembedded.com/stm32-external-interrupt-example-lab/
 STM32-low power:
 	https://forum.digikey.com/t/low-power-modes-on-the-stm32l0-series/13306
+STM32-FatFs SD card:
+	https://01001000.xyz/2020-08-09-Tutorial-STM32CubeIDE-SD-card/

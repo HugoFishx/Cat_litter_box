@@ -1,30 +1,58 @@
-/* USER CODE BEGIN Header */
 /**
  ******************************************************************************
   * @file    user_diskio.c
   * @brief   This file includes a diskio driver skeleton to be completed by the user.
   ******************************************************************************
-  * @attention
+  * This notice applies to any and all portions of this file
+  * that are not between comment pairs USER CODE BEGIN and
+  * USER CODE END. Other portions of this file, whether 
+  * inserted by the user or by software development tools
+  * are owned by their respective copyright owners.
   *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2018 STMicroelectronics International N.V. 
+  * All rights reserved.
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * Redistribution and use in source and binary forms, with or without 
+  * modification, are permitted, provided that the following conditions are met:
+  *
+  * 1. Redistribution of source code must retain the above copyright notice, 
+  *    this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  *    this list of conditions and the following disclaimer in the documentation
+  *    and/or other materials provided with the distribution.
+  * 3. Neither the name of STMicroelectronics nor the names of other 
+  *    contributors to this software may be used to endorse or promote products 
+  *    derived from this software without specific written permission.
+  * 4. This software, including modifications and/or derivative works of this 
+  *    software, must execute solely and exclusively on microcontroller or
+  *    microprocessor devices manufactured by or for STMicroelectronics.
+  * 5. Redistribution and use of this software other than as permitted under 
+  *    this license is void and will automatically terminate your rights under 
+  *    this license. 
+  *
+  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
+  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
+  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+  * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
+  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
+  * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
+  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
+  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
   ******************************************************************************
   */
- /* USER CODE END Header */
 
 #ifdef USE_OBSOLETE_USER_CODE_SECTION_0
-/*
+/* 
  * Warning: the user section 0 is no more in use (starting from CubeMx version 4.16.0)
- * To be suppressed in the future.
- * Kept to ensure backward compatibility with previous CubeMx versions when
- * migrating projects.
- * User code previously added there should be copied in the new user sections before
+ * To be suppressed in the future. 
+ * Kept to ensure backward compatibility with previous CubeMx versions when 
+ * migrating projects. 
+ * User code previously added there should be copied in the new user sections before 
  * the section contents can be deleted.
  */
 /* USER CODE BEGIN 0 */
@@ -36,7 +64,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
 #include "ff_gen_drv.h"
-#include <sdcard.h>
+#include "sdcard.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -52,7 +80,7 @@ DSTATUS USER_initialize (BYTE pdrv);
 DSTATUS USER_status (BYTE pdrv);
 DRESULT USER_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
 #if _USE_WRITE == 1
-  DRESULT USER_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
+  DRESULT USER_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);  
 #endif /* _USE_WRITE == 1 */
 #if _USE_IOCTL == 1
   DRESULT USER_ioctl (BYTE pdrv, BYTE cmd, void *buff);
@@ -62,10 +90,10 @@ Diskio_drvTypeDef  USER_Driver =
 {
   USER_initialize,
   USER_status,
-  USER_read,
+  USER_read, 
 #if  _USE_WRITE
   USER_write,
-#endif  /* _USE_WRITE == 1 */
+#endif  /* _USE_WRITE == 1 */  
 #if  _USE_IOCTL == 1
   USER_ioctl,
 #endif /* _USE_IOCTL == 1 */
@@ -91,9 +119,9 @@ DSTATUS USER_initialize (
     return 0;
   /* USER CODE END INIT */
 }
-
+ 
 /**
-  * @brief  Gets Disk Status
+  * @brief  Gets Disk Status 
   * @param  pdrv: Physical drive number (0..)
   * @retval DSTATUS: Operation status
   */
@@ -102,12 +130,12 @@ DSTATUS USER_status (
 )
 {
   /* USER CODE BEGIN STATUS */
-	return 0;
+    return 0;
   /* USER CODE END STATUS */
 }
 
 /**
-  * @brief  Reads Sector(s)
+  * @brief  Reads Sector(s) 
   * @param  pdrv: Physical drive number (0..)
   * @param  *buff: Data buffer to store read data
   * @param  sector: Sector address (LBA)
@@ -143,7 +171,7 @@ DRESULT USER_read (
 }
 
 /**
-  * @brief  Writes Sector(s)
+  * @brief  Writes Sector(s)  
   * @param  pdrv: Physical drive number (0..)
   * @param  *buff: Data to be written
   * @param  sector: Sector address (LBA)
@@ -157,9 +185,8 @@ DRESULT USER_write (
 	DWORD sector,       /* Sector address in LBA */
 	UINT count          /* Number of sectors to write */
 )
-{
+{ 
   /* USER CODE BEGIN WRITE */
-  /* USER CODE HERE */
     if(SDCARD_WriteBegin(sector) < 0) {
         return RES_ERROR;
     }
@@ -178,12 +205,13 @@ DRESULT USER_write (
     }
 
     return RES_OK;
+
   /* USER CODE END WRITE */
 }
 #endif /* _USE_WRITE == 1 */
 
 /**
-  * @brief  I/O control operation
+  * @brief  I/O control operation  
   * @param  pdrv: Physical drive number (0..)
   * @param  cmd: Control code
   * @param  *buff: Buffer to send/receive control data
@@ -202,6 +230,7 @@ DRESULT USER_ioctl (
 	} else {
 		// should never be called
 		return RES_ERROR;
+	}
   /* USER CODE END IOCTL */
 }
 #endif /* _USE_IOCTL == 1 */
