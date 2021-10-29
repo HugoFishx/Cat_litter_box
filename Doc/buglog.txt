@@ -7,3 +7,7 @@ Serial:
 Interrupt:
 	ISR does not work with RFID_read
 	Maybe the ISR is too long and uses too much space on stack
+
+STlink:
+	Problem: download error"Invalid ROM table"
+	Trial(unsolved): Power up with pulling up BOOT0 and re-download. 

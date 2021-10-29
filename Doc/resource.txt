@@ -7,6 +7,7 @@ UDP:
 SD card:
 	https://learn.adafruit.com/adafruit-micro-sd-breakout-board-card-tutorial?view=all
 	https://www.arduino.cc/en/Tutorial/LibraryExamples/ReadWrite
+	https://blog.csdn.net/m0_37777700/article/details/103537330
 Low Power:
 	https://github.com/rocketscream/Low-Power
 STM32-interrupt:
