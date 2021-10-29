@@ -11,3 +11,5 @@ Low Power:
 	https://github.com/rocketscream/Low-Power
 STM32-interrupt:
 	https://deepbluembedded.com/stm32-external-interrupt-example-lab/
+STM32-low power:
+	https://forum.digikey.com/t/low-power-modes-on-the-stm32l0-series/13306

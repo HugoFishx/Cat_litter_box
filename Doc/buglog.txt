@@ -4,3 +4,6 @@ Arduino String format in UDP printf:
 Serial:
 	Problem: Serial does not finish printing before sleep
 	Solution: Use Seria.flush() to make sure all data has been transmitted or received
+Interrupt:
+	ISR does not work with RFID_read
+	Maybe the ISR is too long and uses too much space on stack
