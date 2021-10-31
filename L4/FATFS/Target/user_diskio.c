@@ -36,7 +36,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
 #include "ff_gen_drv.h"
-#include <sdcard.h>
+#include "sdcard.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -202,6 +202,7 @@ DRESULT USER_ioctl (
 	} else {
 		// should never be called
 		return RES_ERROR;
+	}
   /* USER CODE END IOCTL */
 }
 #endif /* _USE_IOCTL == 1 */
