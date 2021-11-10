@@ -272,7 +272,7 @@ typedef struct Uid{
 /////////////////////////////////////////////////////////////////////////////////////
 // Basic interface functions for communicating with the MFRC522
 /////////////////////////////////////////////////////////////////////////////////////
-void PCD_WriteRegisterOneByte(PCD_Register reg, uint8_t value);
+HAL_StatusTypeDef PCD_WriteRegisterOneByte(PCD_Register reg, uint8_t value);
 void PCD_WriteRegister(PCD_Register reg, uint8_t count, uint8_t* values);
 uint8_t PCD_ReadRegisterOneByte(PCD_Register reg);
 void PCD_ReadRegister(PCD_Register reg, uint8_t count, uint8_t* values, uint8_t rxAlign);
@@ -304,7 +304,7 @@ void PCD_SoftPowerUp();
 /////////////////////////////////////////////////////////////////////////////////////
 StatusCode PCD_TransceiveData(uint8_t* sendData, uint8_t sendLen, uint8_t* backData, uint8_t* backLen, uint8_t* validBits , uint8_t rxAlign , bool checkCRC );
 StatusCode PCD_CommunicateWithPICC(uint8_t command, uint8_t waitIRq, uint8_t* sendData, uint8_t sendLen, uint8_t* backData , uint8_t* backLen , uint8_t* validBits, uint8_t rxAlign, bool checkCRC);
-//StatusCode PICC_RequestA(byte *bufferATQA, byte *bufferSize);
+StatusCode PICC_RequestA(uint8_t *bufferATQA, uint8_t *bufferSize);
 //StatusCode PICC_WakeupA(byte *bufferATQA, byte *bufferSize);
 StatusCode PICC_REQA_or_WUPA(uint8_t command, uint8_t* bufferATQA, uint8_t* bufferSize);
 StatusCode PICC_Select(Uid* uid, uint8_t validBits);
