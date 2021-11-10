@@ -1,30 +1,36 @@
 #include "MFRC522.h"
 
-GPIO_InitTypeDef _chipSelectPin;
-GPIO_InitTypeDef _resetPowerDownPin;
-#define _chipSelectPin  2//chipSelectPin //change to corresponding pin
-#define _resetPowerDownPin  3//resetPowerDownPin //same here
+#define _chipSelectPin  GPIO_PIN_0//chipSelectPin //change to corresponding pin
+#define _resetPowerDownPin  GPIO_PIN_1//resetPowerDownPin //same here
 
+GPIO_InitTypeDef _powerDownPinInput = (GPIO_InitTypeDef){	.Pin = _resetPowerDownPin,
+															.Mode = GPIO_MODE_INPUT,
+															.Pull = GPIO_NOPULL,
+															.Speed = GPIO_SPEED_FREQ_LOW  };
+GPIO_InitTypeDef _powerDownPinOutput = (GPIO_InitTypeDef){	.Pin = _resetPowerDownPin,
+															.Mode = GPIO_MODE_OUTPUT_PP,
+															.Pull = GPIO_NOPULL,
+															.Speed = GPIO_SPEED_FREQ_LOW  };
 SPI_HandleTypeDef hspi1;
-
+uint8_t entered = 0;
+uint8_t entered1 = 0;
+uint8_t p = 100;
+uint8_t p1 = 100;
+uint8_t p2 = 100;
 static uint8_t UNUSED_PIN = UINT8_MAX;
 /**
  * Writes a byte to the specified register in the MFRC522 chip.
  * The interface is described in the datasheet section 8.1.2.
  */
-void PCD_WriteRegisterOneByte(	PCD_Register reg,	///< The register to write to. One of the PCD_Register enums.
+
+HAL_StatusTypeDef PCD_WriteRegisterOneByte(	PCD_Register reg,	///< The register to write to. One of the PCD_Register enums.
 									uint8_t value			///< The value to write.
 								) {
-	//SPI.beginTransaction(SPISettings(MFRC522_SPICLOCK, MSBFIRST, SPI_MODE0));	// Set the settings to work with SPI bus
-	//digitalWrite(_chipSelectPin, LOW);		// Select slave
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_RESET);
-	//SPI.transfer(reg);						// MSB == 0 is for writing. LSB is not used in address. Datasheet section 8.1.2.3.
-	//SPI.transfer(value);
-	HAL_SPI_Transmit(&hspi1, (uint8_t*)&reg, 1, 100);
-	HAL_SPI_Transmit(&hspi1, (uint8_t*)value, 1, 100);
-	//digitalWrite(_chipSelectPin, HIGH);		// Release slave again
+	if (HAL_SPI_Transmit(&hspi1, (uint8_t*)&reg, 1, -1) != HAL_OK) return HAL_ERROR;
+	if (HAL_SPI_Transmit(&hspi1, (uint8_t*)&value, 1, -1) != HAL_OK) return HAL_ERROR;
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_SET);
-	//SPI.endTransaction(); // Stop using the SPI bus
+	return HAL_OK;
 } // End PCD_WriteRegister()
 
 /**
@@ -35,18 +41,10 @@ void PCD_WriteRegister(	PCD_Register reg,	///< The register to write to. One of 
 									uint8_t count,			///< The number of bytes to write to the register
 									uint8_t *values		///< The values to write. Byte array.
 								) {
-	//SPI.beginTransaction(SPISettings(MFRC522_SPICLOCK, MSBFIRST, SPI_MODE0));	// Set the settings to work with SPI bus
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_RESET);
-	//digitalWrite(_chipSelectPin, LOW);		// Select slave
-	HAL_SPI_Transmit(&hspi1, (uint8_t*)&reg, 1, 100);
-	//SPI.transfer(reg);						// MSB == 0 is for writing. LSB is not used in address. Datasheet section 8.1.2.3.
-	for (int index = 0; index < count; index++) {
-		//SPI.transfer(values[index]);
-		HAL_SPI_Transmit(&hspi1, (uint8_t*)values[index], 1, 100);
-	}
+	HAL_SPI_Transmit(&hspi1, (uint8_t*)&reg, 1, -1);
+	HAL_SPI_Transmit(&hspi1, (uint8_t*)values, count, -1);
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_SET);
-	//digitalWrite(_chipSelectPin, HIGH);		// Release slave again
-	//SPI.endTransaction(); // Stop using the SPI bus
 } // End PCD_WriteRegister()
 
 /**
@@ -57,14 +55,9 @@ uint8_t PCD_ReadRegisterOneByte(	PCD_Register reg	///< The register to read from
 								) {
 	uint8_t value;
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_RESET);
-	//SPI.beginTransaction(SPISettings(MFRC522_SPICLOCK, MSBFIRST, SPI_MODE0));	// Set the settings to work with SPI bus
-	//digitalWrite(_chipSelectPin, LOW);			// Select slave
 	uint8_t address = 0x80 | reg;					// MSB == 1 is for reading. LSB is not used in address. Datasheet section 8.1.2.3.
-	HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&address, (uint8_t*)value, 1, 100);
-	//value = HAL_SPI_Receive(reg, 0, 1, 100);;					// Read the value back. Send 0 to stop reading.
+	HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&address, (uint8_t*)&value, 1, -1);
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_SET);
-	//digitalWrite(_chipSelectPin, HIGH);			// Release slave again
-	//SPI.endTransaction(); // Stop using the SPI bus
 	return value;
 } // End PCD_ReadRegister()
 
@@ -72,6 +65,7 @@ uint8_t PCD_ReadRegisterOneByte(	PCD_Register reg	///< The register to read from
  * Reads a number of bytes from the specified register in the MFRC522 chip.
  * The interface is described in the datasheet section 8.1.2.
  */
+// TODO: review this function, receive multiple values from the same address. could be simplified
 void PCD_ReadRegister(	PCD_Register reg,	///< The register to read from. One of the PCD_Register enums.
 								uint8_t count,			///< The number of bytes to read
 								uint8_t *values,		///< Byte array to store the values in.
@@ -80,27 +74,24 @@ void PCD_ReadRegister(	PCD_Register reg,	///< The register to read from. One of 
 	if (count == 0) {
 		return;
 	}
-	//Serial.print(F("Reading ")); 	Serial.print(count); Serial.println(F(" bytes from register."));
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_RESET);
 	uint8_t address = 0x80 | reg;				// MSB == 1 is for reading. LSB is not used in address. Datasheet section 8.1.2.3.
 	uint8_t index = 0;							// Index in values array.
-	//SPI.beginTransaction(SPISettings(MFRC522_SPICLOCK, MSBFIRST, SPI_MODE0));	// Set the settings to work with SPI bus
-	//digitalWrite(_chipSelectPin, LOW);		// Select slave
 	count--;								// One read is performed outside of the loop
-	HAL_SPI_Transmit(&hspi1, (uint8_t*)&address, 1, 100);
+	HAL_SPI_Transmit(&hspi1, (uint8_t*)&address, 1, -1);
 	//SPI.transfer(address);					// Tell MFRC522 which address we want to read
 	if (rxAlign) {		// Only update bit positions rxAlign..7 in values[0]
 		// Create bit mask for bit positions rxAlign..7
 		uint8_t mask = (0xFF << rxAlign) & 0xFF;
 		// Read value and tell that we want to read the same address again.
 		uint8_t value;
-		HAL_SPI_Receive(&hspi1, (uint8_t*)value, 1, 100);
+		HAL_SPI_Receive(&hspi1, (uint8_t*)value, 1, -1);
 		// Apply mask to both current value of values[0] and the new data in value.
 		values[0] = (values[0] & ~mask) | (value & mask);
 		index++;
 	}
 	while (index < count) {
-		HAL_SPI_Receive(&hspi1, (uint8_t*)values[index], 1, 100);	// Read value and tell that we want to read the same address again.
+		HAL_SPI_Receive(&hspi1, (uint8_t*)values[index], 1, -1);	// Read value and tell that we want to read the same address again.
 		index++;
 	}
 	//values[index] = SPI.transfer(0);			// Read the final byte. Send 0 to stop reading.
@@ -177,27 +168,19 @@ StatusCode PCD_CalculateCRC(uint8_t*data,		///< In: Pointer to the data to trans
 void PCD_Init() {
 	bool hardReset = false;
 
-	// Set the chipSelectPin as digital output, do not select the slave yet
-	//pinMode(_chipSelectPin, OUTPUT);
-	//_chipSelectPin.Mode = GPIO_MODE_OUTPUT_PP;
-	//digitalWrite(_chipSelectPin, HIGH);
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_SET);
 	// If a valid pin number has been set, pull device out of power down / reset state.
 	if (_resetPowerDownPin != UNUSED_PIN) {
 		// First set the resetPowerDownPin as digital input, to check the MFRC522 power down mode.
 		//pinMode(_resetPowerDownPin, INPUT);
-		//_resetPowerDownPin.Mode = GPIO_MODE_INPUT_PP;
+		HAL_GPIO_Init(GPIOA, &_powerDownPinInput);
+
 		if (HAL_GPIO_ReadPin(GPIOA, _resetPowerDownPin) == GPIO_PIN_RESET) {	// The MFRC522 chip is in power down mode.
-			//pinMode(_resetPowerDownPin, OUTPUT);		// Now set the resetPowerDownPin as digital output.
-			//_resetPowerDownPin.Mode = GPIO_MODE_OUTPUT_PP;
-			//digitalWrite(_resetPowerDownPin, LOW);		// Make sure we have a clean LOW state.
+			HAL_GPIO_Init(GPIOA, &_powerDownPinOutput);
 			HAL_GPIO_WritePin(GPIOA, _resetPowerDownPin, GPIO_PIN_RESET);
-			delay(1);
-			//delayMicroseconds(2);				// 8.8.1 Reset timing requirements says about 100ns. Let us be generous: 2μsl
-			//digitalWrite(_resetPowerDownPin, HIGH);		// Exit power down mode. This triggers a hard reset.
+			HAL_Delay(1);
 			HAL_GPIO_WritePin(GPIOA, _resetPowerDownPin, GPIO_PIN_SET);
-			// Section 8.8.2 in the datasheet says the oscillator start-up time is the start up time of the crystal + 37,74μs. Let us be generous: 50ms.
-			delay(50);
+			HAL_Delay(50);
 			hardReset = true;
 		}
 	}
@@ -257,7 +240,7 @@ void PCD_Reset() {
 	int count = 0;
 	do {
 		// Wait for the PowerDown bit in CommandReg to be cleared (max 3x50ms)
-		delay(50);
+		HAL_Delay(50);
 	} while ((PCD_ReadRegisterOneByte(CommandReg) & (1 << 4)) && (++count) < 3);
 } // End PCD_Reset()
 
@@ -320,9 +303,12 @@ StatusCode PCD_CommunicateWithPICC(uint8_t command,		///< The command to execute
 	PCD_WriteRegisterOneByte(CommandReg, PCD_Idle);			// Stop any active command.
 	PCD_WriteRegisterOneByte(ComIrqReg, 0x7F);					// Clear all seven interrupt request bits
 	PCD_WriteRegisterOneByte(FIFOLevelReg, 0x80);				// FlushBuffer = 1, FIFO initialization
-	PCD_WriteRegister(FIFODataReg, sendLen, sendData);	// Write sendData to the FIFO
+	p = PCD_ReadRegisterOneByte(FIFOLevelReg);
+	PCD_WriteRegisterOneByte(FIFODataReg, sendData);	// Write sendData to the FIFO
+	p1 = PCD_ReadRegisterOneByte(FIFOLevelReg);
 	PCD_WriteRegisterOneByte(BitFramingReg, bitFraming);		// Bit adjustments
 	PCD_WriteRegisterOneByte(CommandReg, command);				// Execute the command
+	p2 = PCD_ReadRegisterOneByte(CommandReg);
 	if (command == PCD_Transceive) {
 		PCD_SetRegisterBitMask(BitFramingReg, 0x80);	// StartSend=1, transmission of data starts
 	}
@@ -353,11 +339,11 @@ StatusCode PCD_CommunicateWithPICC(uint8_t command,		///< The command to execute
 	}
 
 	uint8_t _validBits = 0;
-
 	// If the caller wants data back, get it from the MFRC522.
 	if (backData && backLen) {
-		uint8_t n = PCD_ReadRegisterOneByte(FIFOLevelReg);	// Number of bytes in the FIFO
+		uint8_t n = PCD_ReadRegisterOneByte(FIFOLevelReg) & 0x7F;	// Number of bytes in the FIFO
 		if (n > *backLen) {
+			entered = 1;
 			return STATUS_NO_ROOM;
 		}
 		*backLen = n;											// Number of bytes returned
@@ -403,14 +389,21 @@ StatusCode PCD_CommunicateWithPICC(uint8_t command,		///< The command to execute
  *
  * @return STATUS_OK on success, STATUS_??? otherwise.
  */
+StatusCode PICC_RequestA(	uint8_t *bufferATQA,	///< The buffer to store the ATQA (Answer to request) in
+							uint8_t *bufferSize	///< Buffer size, at least two bytes. Also number of bytes returned if STATUS_OK.
+										) {
+	return PICC_REQA_or_WUPA(PICC_CMD_REQA, bufferATQA, bufferSize);
+} // End PICC_RequestA()
+
+
 StatusCode PICC_REQA_or_WUPA(uint8_t command, 		///< The command to send - PICC_CMD_REQA or PICC_CMD_WUPA
 												uint8_t *bufferATQA,	///< The buffer to store the ATQA (Answer to request) in
 												uint8_t *bufferSize	///< Buffer size, at least two bytes. Also number of bytes returned if STATUS_OK.
 											) {
 	uint8_t validBits;
 	StatusCode status;
-
 	if (bufferATQA == NULL || *bufferSize < 2) {	// The ATQA response is 2 bytes long.
+		entered1 = 1;
 		return STATUS_NO_ROOM;
 	}
 	PCD_ClearRegisterBitMask(CollReg, 0x80);		// ValuesAfterColl=1 => Bits received after collision are cleared.
@@ -668,9 +661,39 @@ bool PICC_IsNewCardPresent() {
 	PCD_WriteRegisterOneByte(TxModeReg, 0x00);
 	PCD_WriteRegisterOneByte(RxModeReg, 0x00);
 	// Reset ModWidthReg
-	PCD_WriteRegisterOneByte(ModWidthReg, 0x26);
 
+	PCD_WriteRegisterOneByte(ModWidthReg, 0x26);
+	uint8_t status = 0;
 	StatusCode result = PICC_RequestA(bufferATQA, &bufferSize);
+	switch (result) {
+	case STATUS_OK:
+		status = 1;
+		break;
+	case STATUS_ERROR:
+		status = 2;
+		break;
+	case STATUS_COLLISION:
+		status = 3;
+		break;
+	case STATUS_TIMEOUT:
+		status = 4;
+		break;
+	case STATUS_NO_ROOM:
+		status = 5;
+		break;
+	case STATUS_INTERNAL_ERROR:
+		status = 6;
+		break;
+	case STATUS_INVALID:
+		status = 7;
+		break;
+	case STATUS_CRC_WRONG:
+		status = 8;
+		break;
+	case STATUS_MIFARE_NACK:
+		status = 9;
+		break;
+	}
 	return (result == STATUS_OK || result == STATUS_COLLISION);
 } // End PICC_IsNewCardPresent()
 
