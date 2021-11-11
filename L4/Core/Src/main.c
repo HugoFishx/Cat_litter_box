@@ -57,6 +57,14 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
  uint8_t tmp[256];// for myprintf() debugging
+ unsigned long start_time;
+ unsigned long end_time;
+
+ struct poop_event new_event;
+ int flag = 0;
+ unsigned tag;
+ BYTE writeBuf[30];
+// FRESULT fres; //Result after operations
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,6 +79,8 @@ static void MX_USART1_UART_Init(void);
 static void MX_UART5_Init(void);
 /* USER CODE BEGIN PFP */
 void myprintf(const char *fmt, ...);
+void SDcard_init_poop();
+void SDcard_write_poop(struct poop_event event_to_be_written);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -87,6 +97,143 @@ void myprintf(const char *fmt, ...) {
   memcpy(tmp,buffer,256);
 
 }
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if(GPIO_Pin == GPIO_PIN_9) // Pin enabled in pinout is PC9
+	{
+		if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_9)) { // check whether enter or leave
+			/*enter handler*/
+			myprintf("Cat in!\r\n");
+			start_time = HAL_GetTick(); // can also record time in real word. may need internet
+			flag = 1;
+		  } else {
+			/*leave handler*/
+			myprintf("Cat out! \r\n");
+			end_time = HAL_GetTick();
+			new_event.cat_id = tag;
+			new_event.duration = end_time - start_time;
+			myprintf("Duration: %i \r\n", new_event.duration);
+//			SDcard_write_poop(new_event);
+			// go_to_sleep(); need another interuppt from wifi
+		  }
+	}
+}
+
+void SDcard_init_poop(){
+	FATFS FatFs; 	//Fatfs handle
+	FRESULT fres; //Result after operations
+	FIL fil; 		//File handle
+
+	fres = f_mount(&FatFs, "", 0); //1=mount now
+	if (fres != FR_OK) {
+	myprintf("f_mount error (%i)\r\n", fres);
+	while(1);
+	}
+	//Let's get some statistics from the SD card
+	DWORD free_clusters, free_sectors, total_sectors;
+
+	FATFS* getFreeFs;
+
+	fres = f_getfree("", &free_clusters, &getFreeFs);
+	if (fres != FR_OK) {
+	myprintf("f_getfree error (%i)\r\n", fres);
+	while(1);
+	}
+
+	fres = f_open(&fil, "hello.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
+	if(fres == FR_OK) {
+		myprintf("I was able to open 'hello.txt' for writing\r\n");
+	} else {
+		myprintf("f_open error (%i)\r\n", fres);
+	}
+	UINT bytesWrote;
+	BYTE writeBuf_init[30];
+	strncpy((char*)writeBuf_init, "a new shat is made!\n", 20);
+	fres = f_write(&fil, writeBuf_init, 20, &bytesWrote);
+	if(fres == FR_OK) {
+		myprintf("Wrote %i bytes to 'hello.txt'!\r\n", bytesWrote);
+		} else {
+		myprintf("f_write error (%i)\r\n",fres);
+	}
+
+	f_close(&fil);
+
+	f_mount(NULL, "", 0);
+
+
+
+
+}
+
+void SDcard_write_poop(struct poop_event event_to_be_written) {
+	FATFS FatFs; 	//Fatfs handle
+		FRESULT fres; //Result after operations
+		FIL fil; 		//File handle
+
+		fres = f_mount(&FatFs, "", 0); //1=mount now
+		if (fres != FR_OK) {
+		myprintf("f_mount error (%i)\r\n", fres);
+		while(1);
+		}
+		//Let's get some statistics from the SD card
+//		DWORD free_clusters, free_sectors, total_sectors;
+//
+//		FATFS* getFreeFs;
+//
+//		fres = f_getfree("", &free_clusters, &getFreeFs);
+//		if (fres != FR_OK) {
+//		myprintf("f_getfree error (%i)\r\n", fres);
+//		while(1);
+//		}
+
+		  BYTE readBuf[30];
+		  //We can either use f_read OR f_gets to get data out of files
+		  //f_gets is a wrapper on f_read that does some string formatting for us
+//		  TCHAR* rres = f_gets((TCHAR*)readBuf, 30, &fil);
+//		  if(rres != 0) {
+//			myprintf("Read string from 'test.txt' contents: %s\r\n", readBuf);
+//		  } else {
+//			myprintf("f_gets error (%i)\r\n", fres);
+//		  }
+
+		fres = f_open(&fil, "hellopoop.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_CREATE_ALWAYS);
+		if(fres == FR_OK) {
+			myprintf("I was able to open 'hellopoop.txt' for writing\r\n");
+		} else {
+			myprintf("f_open error (%i)\r\n", fres);
+		}
+		UINT bytesWrote;
+		BYTE writeBuf_poop[30];
+		strncpy((char*)writeBuf_poop, "a new poop is made!", 19);
+		fres = f_write(&fil, writeBuf_poop, 19, &bytesWrote);
+		if(fres == FR_OK) {
+			myprintf("Wrote %i bytes to 'hellopoop.txt'!\r\n", bytesWrote);
+			} else {
+			myprintf("f_write error (%i)\r\n",fres);
+		}
+
+		f_close(&fil);
+
+		f_mount(NULL, "", 0);
+
+
+
+	//f_close(&fil);
+
+//  File data_log = SD.open("datalog.txt", FILE_WRITE);
+//  if(data_log) {
+//    data_log.print("ID: ");
+//    data_log.print(event_to_be_written.cat_id);
+//    data_log.print("Time: ");
+//    data_log.println(event_to_be_written.duration);
+//    data_log.close();
+//  } else {
+//    debug_print("error opening file");
+//  }
+//  debug_print("Data Recorded!");
+//  return;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -126,76 +273,83 @@ int main(void)
   MX_USART1_UART_Init();
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
-  FATFS FatFs; 	//Fatfs handle
-  FIL fil; 		//File handle
-  FRESULT fres; //Result after operations
-  fres = f_mount(&FatFs, "", 1); //1=mount now
-  if (fres != FR_OK) {
-	myprintf("f_mount error (%i)\r\n", fres);
-	while(1);
-  }
-  //Let's get some statistics from the SD card
-  DWORD free_clusters, free_sectors, total_sectors;
 
-  FATFS* getFreeFs;
+  SDcard_init_poop();
 
-  fres = f_getfree("", &free_clusters, &getFreeFs);
-  if (fres != FR_OK) {
-	myprintf("f_getfree error (%i)\r\n", fres);
-	while(1);
-  }
+  //
+//  SDcard_write_poop(new_event);
 
-  //Formula comes from ChaN's documentation
-  total_sectors = (getFreeFs->n_fatent - 2) * getFreeFs->csize;
-  free_sectors = free_clusters * getFreeFs->csize;
-
-  myprintf("SD card stats:\r\n%10lu KiB total drive space.\r\n%10lu KiB available.\r\n", total_sectors / 2, free_sectors / 2);
-
-  //Now let's try to open file "test.txt"
-//  fres = f_open(&fil, "test.txt", FA_READ);
+  
+//  FATFS FatFs; 	//Fatfs handle
+//  FIL fil; 		//File handle
+//  FRESULT fres; //Result after operations
+//  fres = f_mount(&FatFs, "", 1); //1=mount now
 //  if (fres != FR_OK) {
-//	myprintf("f_open error (%i)\r\n");
+//	myprintf("f_mount error (%i)\r\n", fres);
 //	while(1);
 //  }
-//  myprintf("I was able to open 'test.txt' for reading!\r\n");
-
-  //Read 30 bytes from "test.txt" on the SD card
-  BYTE readBuf[30];
-  //We can either use f_read OR f_gets to get data out of files
-  //f_gets is a wrapper on f_read that does some string formatting for us
-//  TCHAR* rres = f_gets((TCHAR*)readBuf, 30, &fil);
-//  if(rres != 0) {
-//	myprintf("Read string from 'test.txt' contents: %s\r\n", readBuf);
-//  } else {
-//	myprintf("f_gets error (%i)\r\n", fres);
+//  //Let's get some statistics from the SD card
+//  DWORD free_clusters, free_sectors, total_sectors;
+//
+//  FATFS* getFreeFs;
+//
+//  fres = f_getfree("", &free_clusters, &getFreeFs);
+//  if (fres != FR_OK) {
+//	myprintf("f_getfree error (%i)\r\n", fres);
+//	while(1);
 //  }
-
-  //Be a tidy kiwi - don't forget to close your file!
+//
+//  //Formula comes from ChaN's documentation
+//  total_sectors = (getFreeFs->n_fatent - 2) * getFreeFs->csize;
+//  free_sectors = free_clusters * getFreeFs->csize;
+//
+//  myprintf("SD card stats:\r\n%10lu KiB total drive space.\r\n%10lu KiB available.\r\n", total_sectors / 2, free_sectors / 2);
+//
+//  //Now let's try to open file "test.txt"
+////  fres = f_open(&fil, "test.txt", FA_READ);
+////  if (fres != FR_OK) {
+////	myprintf("f_open error (%i)\r\n");
+////	while(1);
+////  }
+////  myprintf("I was able to open 'test.txt' for reading!\r\n");
+//
+//  //Read 30 bytes from "test.txt" on the SD card
+//  BYTE readBuf[30];
+//  //We can either use f_read OR f_gets to get data out of files
+//  //f_gets is a wrapper on f_read that does some string formatting for us
+////  TCHAR* rres = f_gets((TCHAR*)readBuf, 30, &fil);
+////  if(rres != 0) {
+////	myprintf("Read string from 'test.txt' contents: %s\r\n", readBuf);
+////  } else {
+////	myprintf("f_gets error (%i)\r\n", fres);
+////  }
+//
+//  //Be a tidy kiwi - don't forget to close your file!
+////  f_close(&fil);
+//
+//  //Now let's try and write a file "write.txt"
+//  fres = f_open(&fil, "write1.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_CREATE_ALWAYS);
+//  if(fres == FR_OK) {
+//	myprintf("I was able to open 'write.txt' for writing\r\n");
+//  } else {
+//	myprintf("f_open error (%i)\r\n", fres);
+//  }
+//
+//  //Copy in a string
+//  strncpy((char*)readBuf, "a new file is made!", 19);
+//  UINT bytesWrote;
+//  fres = f_write(&fil, readBuf, 19, &bytesWrote);
+//  if(fres == FR_OK) {
+//	myprintf("Wrote %i bytes to 'write.txt'!\r\n", bytesWrote);
+//  } else {
+//	myprintf("f_write error (%i)\r\n");
+//  }
+//
+//  //Be a tidy kiwi - don't forget to close your file!
 //  f_close(&fil);
-
-  //Now let's try and write a file "write.txt"
-  fres = f_open(&fil, "write.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_CREATE_ALWAYS);
-  if(fres == FR_OK) {
-	myprintf("I was able to open 'write.txt' for writing\r\n");
-  } else {
-	myprintf("f_open error (%i)\r\n", fres);
-  }
-
-  //Copy in a string
-  strncpy((char*)readBuf, "a new file is made!", 19);
-  UINT bytesWrote;
-  fres = f_write(&fil, readBuf, 19, &bytesWrote);
-  if(fres == FR_OK) {
-	myprintf("Wrote %i bytes to 'write.txt'!\r\n", bytesWrote);
-  } else {
-	myprintf("f_write error (%i)\r\n");
-  }
-
-  //Be a tidy kiwi - don't forget to close your file!
-  f_close(&fil);
-
-  //We're done, so de-mount the drive
-  f_mount(NULL, "", 0);
+//
+//  //We're done, so de-mount the drive
+//  f_mount(NULL, "", 0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -203,8 +357,10 @@ int main(void)
   while (1)
   {
 
-	  HAL_UART_Transmit(&huart5, (uint8_t*)tmp, 256, -1);
-	  HAL_Delay(500);
+	  SDcard_init_poop();
+	  HAL_Delay(2000);
+//	  HAL_UART_Transmit(&huart5, (uint8_t*)tmp, 256, -1);
+//	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
