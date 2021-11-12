@@ -63,7 +63,9 @@ UART_HandleTypeDef huart2;
  struct poop_event new_event;
  int flag = 0;
  unsigned tag;
- BYTE writeBuf[30];
+ char RFID_tag[10] = {'1','2','3','4','5','a','b','c','d','a'};
+char wifi_buffer1[5];
+
 // FRESULT fres; //Result after operations
 /* USER CODE END PV */
 
@@ -80,7 +82,7 @@ static void MX_UART5_Init(void);
 /* USER CODE BEGIN PFP */
 void myprintf(const char *fmt, ...);
 void SDcard_init_poop();
-void SDcard_write_poop(struct poop_event event_to_be_written);
+void SDcard_write_poop();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -93,7 +95,7 @@ void myprintf(const char *fmt, ...) {
   vsnprintf(buffer, sizeof(buffer), fmt, args);
   va_end(args);
   int len = strlen(buffer);
-  HAL_UART_Transmit(&huart5, (uint8_t*)buffer, len, -1);
+  HAL_UART_Transmit(&huart1, (uint8_t*)buffer, len, -1);
   memcpy(tmp,buffer,256);
 
 }
@@ -113,126 +115,68 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			new_event.cat_id = tag;
 			new_event.duration = end_time - start_time;
 			myprintf("Duration: %i \r\n", new_event.duration);
-//			SDcard_write_poop(new_event);
+//			SDcard_write_poop();
+
 			// go_to_sleep(); need another interuppt from wifi
 		  }
 	}
 }
-
-void SDcard_init_poop(){
+void Wifi_write_poop(){
+	static char wifi_buffer[256];
+	HAL_UART_Transmit(&huart1, "version", strlen("version"),-1);
+	HAL_UART_Receive(&huart1, wifi_buffer, 256, -1);
+	HAL_UART_Transmit(&huart5, (uint8_t*)wifi_buffer, 256, -1);
+}
+void SDcard_write_poop(){
 	FATFS FatFs; 	//Fatfs handle
 	FRESULT fres; //Result after operations
 	FIL fil; 		//File handle
+	UINT bytesWrote;
+	char writeBuf[50];
+	char itoaBuf[10];
+
+//	strcat(writeBuf,"\r\nID: ");
+//	strcat(writeBuf,RFID_tag);
+//	strcat(writeBuf,"\r\nDuration: ");
+//	itoa((char*)itoaBuf,114514,10);
+//	strcat(writeBuf, itoaBuf );
+
 
 	fres = f_mount(&FatFs, "", 0); //1=mount now
 	if (fres != FR_OK) {
 	myprintf("f_mount error (%i)\r\n", fres);
 	while(1);
 	}
-	//Let's get some statistics from the SD card
-	DWORD free_clusters, free_sectors, total_sectors;
 
-	FATFS* getFreeFs;
-
-	fres = f_getfree("", &free_clusters, &getFreeFs);
-	if (fres != FR_OK) {
-	myprintf("f_getfree error (%i)\r\n", fres);
-	while(1);
-	}
-
-	fres = f_open(&fil, "hello.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
+	fres = f_open(&fil, "datalog3.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
 	if(fres == FR_OK) {
-		myprintf("I was able to open 'hello.txt' for writing\r\n");
+		myprintf("I was able to open 'datalog3.txt' for writing\r\n");
 	} else {
 		myprintf("f_open error (%i)\r\n", fres);
 	}
-	UINT bytesWrote;
-	BYTE writeBuf_init[30];
-	strncpy((char*)writeBuf_init, "a new shat is made!\n", 20);
-	fres = f_write(&fil, writeBuf_init, 20, &bytesWrote);
-	if(fres == FR_OK) {
-		myprintf("Wrote %i bytes to 'hello.txt'!\r\n", bytesWrote);
-		} else {
-		myprintf("f_write error (%i)\r\n",fres);
-	}
+
+
+	// write event into datalog.txt
+
+//	strncpy((char*)writeBuf, "a new shat is made!\r\n", 20);
+	fres = f_write(&fil, "\r\nID:", strlen("\r\nID:"), &bytesWrote);
+//	HAL_Delay(5);
+	fres = f_write(&fil, RFID_tag, strlen(RFID_tag), &bytesWrote);
+//	HAL_Delay(5);
+	fres = f_write(&fil, "\r\nDuration:", strlen("\r\nDuration:"), &bytesWrote);
+	itoa(new_event.duration,itoaBuf, 10);
+	fres = f_write(&fil, itoaBuf, strlen(itoaBuf), &bytesWrote);
+	myprintf("Data Recorded!\n");
+
+
 
 	f_close(&fil);
 
 	f_mount(NULL, "", 0);
 
 
-
-
 }
 
-void SDcard_write_poop(struct poop_event event_to_be_written) {
-	FATFS FatFs; 	//Fatfs handle
-		FRESULT fres; //Result after operations
-		FIL fil; 		//File handle
-
-		fres = f_mount(&FatFs, "", 0); //1=mount now
-		if (fres != FR_OK) {
-		myprintf("f_mount error (%i)\r\n", fres);
-		while(1);
-		}
-		//Let's get some statistics from the SD card
-//		DWORD free_clusters, free_sectors, total_sectors;
-//
-//		FATFS* getFreeFs;
-//
-//		fres = f_getfree("", &free_clusters, &getFreeFs);
-//		if (fres != FR_OK) {
-//		myprintf("f_getfree error (%i)\r\n", fres);
-//		while(1);
-//		}
-
-		  BYTE readBuf[30];
-		  //We can either use f_read OR f_gets to get data out of files
-		  //f_gets is a wrapper on f_read that does some string formatting for us
-//		  TCHAR* rres = f_gets((TCHAR*)readBuf, 30, &fil);
-//		  if(rres != 0) {
-//			myprintf("Read string from 'test.txt' contents: %s\r\n", readBuf);
-//		  } else {
-//			myprintf("f_gets error (%i)\r\n", fres);
-//		  }
-
-		fres = f_open(&fil, "hellopoop.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_CREATE_ALWAYS);
-		if(fres == FR_OK) {
-			myprintf("I was able to open 'hellopoop.txt' for writing\r\n");
-		} else {
-			myprintf("f_open error (%i)\r\n", fres);
-		}
-		UINT bytesWrote;
-		BYTE writeBuf_poop[30];
-		strncpy((char*)writeBuf_poop, "a new poop is made!", 19);
-		fres = f_write(&fil, writeBuf_poop, 19, &bytesWrote);
-		if(fres == FR_OK) {
-			myprintf("Wrote %i bytes to 'hellopoop.txt'!\r\n", bytesWrote);
-			} else {
-			myprintf("f_write error (%i)\r\n",fres);
-		}
-
-		f_close(&fil);
-
-		f_mount(NULL, "", 0);
-
-
-
-	//f_close(&fil);
-
-//  File data_log = SD.open("datalog.txt", FILE_WRITE);
-//  if(data_log) {
-//    data_log.print("ID: ");
-//    data_log.print(event_to_be_written.cat_id);
-//    data_log.print("Time: ");
-//    data_log.println(event_to_be_written.duration);
-//    data_log.close();
-//  } else {
-//    debug_print("error opening file");
-//  }
-//  debug_print("Data Recorded!");
-//  return;
-}
 
 /* USER CODE END 0 */
 
@@ -274,91 +218,36 @@ int main(void)
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
 
-  SDcard_init_poop();
 
-  //
-//  SDcard_write_poop(new_event);
+//  SDcard_write_poop();
+
 
   
-//  FATFS FatFs; 	//Fatfs handle
-//  FIL fil; 		//File handle
-//  FRESULT fres; //Result after operations
-//  fres = f_mount(&FatFs, "", 1); //1=mount now
-//  if (fres != FR_OK) {
-//	myprintf("f_mount error (%i)\r\n", fres);
-//	while(1);
-//  }
-//  //Let's get some statistics from the SD card
-//  DWORD free_clusters, free_sectors, total_sectors;
-//
-//  FATFS* getFreeFs;
-//
-//  fres = f_getfree("", &free_clusters, &getFreeFs);
-//  if (fres != FR_OK) {
-//	myprintf("f_getfree error (%i)\r\n", fres);
-//	while(1);
-//  }
-//
-//  //Formula comes from ChaN's documentation
-//  total_sectors = (getFreeFs->n_fatent - 2) * getFreeFs->csize;
-//  free_sectors = free_clusters * getFreeFs->csize;
-//
-//  myprintf("SD card stats:\r\n%10lu KiB total drive space.\r\n%10lu KiB available.\r\n", total_sectors / 2, free_sectors / 2);
-//
-//  //Now let's try to open file "test.txt"
-////  fres = f_open(&fil, "test.txt", FA_READ);
-////  if (fres != FR_OK) {
-////	myprintf("f_open error (%i)\r\n");
-////	while(1);
-////  }
-////  myprintf("I was able to open 'test.txt' for reading!\r\n");
-//
-//  //Read 30 bytes from "test.txt" on the SD card
-//  BYTE readBuf[30];
-//  //We can either use f_read OR f_gets to get data out of files
-//  //f_gets is a wrapper on f_read that does some string formatting for us
-////  TCHAR* rres = f_gets((TCHAR*)readBuf, 30, &fil);
-////  if(rres != 0) {
-////	myprintf("Read string from 'test.txt' contents: %s\r\n", readBuf);
-////  } else {
-////	myprintf("f_gets error (%i)\r\n", fres);
-////  }
-//
-//  //Be a tidy kiwi - don't forget to close your file!
-////  f_close(&fil);
-//
-//  //Now let's try and write a file "write.txt"
-//  fres = f_open(&fil, "write1.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_CREATE_ALWAYS);
-//  if(fres == FR_OK) {
-//	myprintf("I was able to open 'write.txt' for writing\r\n");
-//  } else {
-//	myprintf("f_open error (%i)\r\n", fres);
-//  }
-//
-//  //Copy in a string
-//  strncpy((char*)readBuf, "a new file is made!", 19);
-//  UINT bytesWrote;
-//  fres = f_write(&fil, readBuf, 19, &bytesWrote);
-//  if(fres == FR_OK) {
-//	myprintf("Wrote %i bytes to 'write.txt'!\r\n", bytesWrote);
-//  } else {
-//	myprintf("f_write error (%i)\r\n");
-//  }
-//
-//  //Be a tidy kiwi - don't forget to close your file!
-//  f_close(&fil);
-//
-//  //We're done, so de-mount the drive
-//  f_mount(NULL, "", 0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  myprintf("stream_close 0\r");
+	  HAL_Delay(100);
+	  myprintf("http_get 192.168.137.123:12345/query/id=from_stm32&n=19:22\r");
+	  HAL_Delay(100);
+	  myprintf("stream_close 0\r");
+	  HAL_Delay(100);
+//	  SDcard_write_poop();
 
-	  SDcard_init_poop();
-	  HAL_Delay(2000);
+//	  	HAL_UART_Transmit(&huart1, "version", strlen("version"),-1);
+//	  myprintf("Hello World!\r\n");
+//	  HAL_Delay(100);
+//	  HAL_UART_Receive(&huart5, (uint8_t*)wifi_buffer1, 5, -1);
+//	  HAL_Delay(100);
+//	  HAL_Delay(30);
+//	  HAL_UART_Receive(&huart1, wifi_buffer1, 256, 1000);
+//	  HAL_UART_Transmit(&huart5, wifi_buffer1, strlen(wifi_buffer1), -1);
+//	  Wifi_write_poop();
+
+//	  HAL_Delay(1000);
 //	  HAL_UART_Transmit(&huart5, (uint8_t*)tmp, 256, -1);
 //	  HAL_Delay(500);
     /* USER CODE END WHILE */
