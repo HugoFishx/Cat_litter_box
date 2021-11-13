@@ -38,7 +38,7 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 struct poop_event {
-  unsigned cat_id;
+  char cat_id[10];
   int duration;
 };
 

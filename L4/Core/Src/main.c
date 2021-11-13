@@ -56,17 +56,15 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
- uint8_t tmp[256];// for myprintf() debugging
- unsigned long start_time;
- unsigned long end_time;
 
- struct poop_event new_event;
- int flag = 0;
- unsigned tag;
- char RFID_tag[10] = {'1','2','3','4','5','a','b','c','d','a'};
-char wifi_buffer1[5];
+unsigned long start_time;
+unsigned long end_time;
 
-// FRESULT fres; //Result after operations
+struct poop_event new_event;
+int cat_in_flag = 0;
+unsigned tag;
+char RFID_tag[10] = {'1','2','3','4','5','a','b','c','d','a'};//Value passed from RFID reader
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -81,8 +79,8 @@ static void MX_USART1_UART_Init(void);
 static void MX_UART5_Init(void);
 /* USER CODE BEGIN PFP */
 void myprintf(const char *fmt, ...);
-void SDcard_init_poop();
-void SDcard_write_poop();
+void SDcard_write_event();
+void Wifi_write_event();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -95,8 +93,7 @@ void myprintf(const char *fmt, ...) {
   vsnprintf(buffer, sizeof(buffer), fmt, args);
   va_end(args);
   int len = strlen(buffer);
-  HAL_UART_Transmit(&huart1, (uint8_t*)buffer, len, -1);
-  memcpy(tmp,buffer,256);
+  HAL_UART_Transmit(&huart5, (uint8_t*)buffer, len, -1);
 
 }
 
@@ -107,41 +104,51 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			/*enter handler*/
 			myprintf("Cat in!\r\n");
 			start_time = HAL_GetTick(); // can also record time in real word. may need internet
-			flag = 1;
+			cat_in_flag = 1;
 		  } else {
 			/*leave handler*/
 			myprintf("Cat out! \r\n");
 			end_time = HAL_GetTick();
-			new_event.cat_id = tag;
+			memcpy(new_event.cat_id, RFID_tag,10);
 			new_event.duration = end_time - start_time;
 			myprintf("Duration: %i \r\n", new_event.duration);
-//			SDcard_write_poop();
+
+			SDcard_write_event();
+			Wifi_write_event();
+
+			cat_in_flag = 0;
 
 			// go_to_sleep(); need another interuppt from wifi
+
 		  }
 	}
 }
-void Wifi_write_poop(){
-	static char wifi_buffer[256];
-	HAL_UART_Transmit(&huart1, "version", strlen("version"),-1);
-	HAL_UART_Receive(&huart1, wifi_buffer, 256, -1);
-	HAL_UART_Transmit(&huart5, (uint8_t*)wifi_buffer, 256, -1);
+
+void Wifi_write_event(){
+	char wifi_buffer[256];
+	char itoaBuf[10];
+	itoa(new_event.duration,itoaBuf, 10);
+
+	HAL_UART_Transmit(&huart1, "stream_close 0\r", strlen("stream_close 0\r"),-1);
+	HAL_Delay(50);
+	strcat(wifi_buffer, "http_get 192.168.137.123:12345/query/id=");
+	strcat(wifi_buffer, new_event.cat_id);
+	strcat(wifi_buffer,"&n=");
+	strcat(wifi_buffer,itoaBuf);
+	strcat(wifi_buffer,"\r");
+	HAL_UART_Transmit(&huart1, wifi_buffer, strlen(wifi_buffer),-1);
+	HAL_Delay(50);
+	HAL_UART_Transmit(&huart1, "stream_close 0\r", strlen("stream_close 0\r"),-1);
+	HAL_Delay(50);
+
 }
-void SDcard_write_poop(){
+
+void SDcard_write_event(){
 	FATFS FatFs; 	//Fatfs handle
 	FRESULT fres; //Result after operations
 	FIL fil; 		//File handle
 	UINT bytesWrote;
-	char writeBuf[50];
 	char itoaBuf[10];
-
-//	strcat(writeBuf,"\r\nID: ");
-//	strcat(writeBuf,RFID_tag);
-//	strcat(writeBuf,"\r\nDuration: ");
-//	itoa((char*)itoaBuf,114514,10);
-//	strcat(writeBuf, itoaBuf );
-
-
 	fres = f_mount(&FatFs, "", 0); //1=mount now
 	if (fres != FR_OK) {
 	myprintf("f_mount error (%i)\r\n", fres);
@@ -155,28 +162,18 @@ void SDcard_write_poop(){
 		myprintf("f_open error (%i)\r\n", fres);
 	}
 
-
-	// write event into datalog.txt
-
-//	strncpy((char*)writeBuf, "a new shat is made!\r\n", 20);
 	fres = f_write(&fil, "\r\nID:", strlen("\r\nID:"), &bytesWrote);
-//	HAL_Delay(5);
-	fres = f_write(&fil, RFID_tag, strlen(RFID_tag), &bytesWrote);
-//	HAL_Delay(5);
+	fres = f_write(&fil, new_event.cat_id, strlen(new_event.cat_id), &bytesWrote);
 	fres = f_write(&fil, "\r\nDuration:", strlen("\r\nDuration:"), &bytesWrote);
 	itoa(new_event.duration,itoaBuf, 10);
 	fres = f_write(&fil, itoaBuf, strlen(itoaBuf), &bytesWrote);
 	myprintf("Data Recorded!\n");
 
-
-
 	f_close(&fil);
 
 	f_mount(NULL, "", 0);
 
-
 }
-
 
 /* USER CODE END 0 */
 
@@ -218,38 +215,18 @@ int main(void)
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
 
-
-//  SDcard_write_poop();
-
-
-  
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  myprintf("stream_close 0\r");
-	  HAL_Delay(100);
-	  myprintf("http_get 192.168.137.123:12345/query/id=from_stm32&n=19:22\r");
-	  HAL_Delay(100);
-	  myprintf("stream_close 0\r");
-	  HAL_Delay(100);
-//	  SDcard_write_poop();
 
-//	  	HAL_UART_Transmit(&huart1, "version", strlen("version"),-1);
-//	  myprintf("Hello World!\r\n");
-//	  HAL_Delay(100);
-//	  HAL_UART_Receive(&huart5, (uint8_t*)wifi_buffer1, 5, -1);
-//	  HAL_Delay(100);
-//	  HAL_Delay(30);
-//	  HAL_UART_Receive(&huart1, wifi_buffer1, 256, 1000);
-//	  HAL_UART_Transmit(&huart5, wifi_buffer1, strlen(wifi_buffer1), -1);
-//	  Wifi_write_poop();
+	  if(cat_in_flag){
+		  //RFID read function
+//		  cat_in_flag = 0;
+	  }
 
-//	  HAL_Delay(1000);
-//	  HAL_UART_Transmit(&huart5, (uint8_t*)tmp, 256, -1);
-//	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
