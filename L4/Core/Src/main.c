@@ -82,7 +82,6 @@ static void MX_USART1_UART_Init(void);
 static void MX_UART5_Init(void);
 /* USER CODE BEGIN PFP */
 void myprintf(const char *fmt, ...);
-void myprintf_usart1(const char *fmt, ...);
 void SDcard_write_event();
 void Wifi_write_event();
 void Wifi_read_time();
@@ -99,18 +98,8 @@ void myprintf(const char *fmt, ...) {
   va_end(args);
   int len = strlen(buffer);
   HAL_UART_Transmit(&huart5, (uint8_t*)buffer, len, -1);
-}
 
-void myprintf_usart1(const char *fmt, ...) {
-  static char buffer[256];
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(buffer, sizeof(buffer), fmt, args);
-  va_end(args);
-  int len = strlen(buffer);
-  HAL_UART_Transmit(&huart1, (uint8_t*)buffer, len, -1);
 }
-
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if(GPIO_Pin == GPIO_PIN_9) // Pin enabled in pinout is PC9
@@ -142,22 +131,22 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 }
 
 void Wifi_write_event(){
-	char wifi_buffer[100]="http_get 192.168.220.129:12345/query/id=";
+	char wifi_buffer[256];
 	char itoaBuf[10];
 
 	itoa(new_event.duration,itoaBuf, 10);
-//	memcpy(wifi_buffer, "http_get 192.168.137.123:12345/query/id=",strlen("http_get 192.168.137.123:12345/query/id=")-1);
+	strcat(wifi_buffer, "http_get 192.168.137.123:12345/query/id=");
 	strcat(wifi_buffer, new_event.cat_id);
 	strcat(wifi_buffer,"&n=");
 	strcat(wifi_buffer,itoaBuf);
 	strcat(wifi_buffer,"\r");
 
 	HAL_UART_Transmit(&huart1, "stream_close 0\r", strlen("stream_close 0\r"),-1);
-//	HAL_Delay(50);
+	HAL_Delay(50);
 	HAL_UART_Transmit(&huart1, wifi_buffer, strlen(wifi_buffer),-1);
-//	HAL_Delay(50);
+	HAL_Delay(50);
 	HAL_UART_Transmit(&huart1, "stream_close 0\r", strlen("stream_close 0\r"),-1);
-//	HAL_Delay(50);
+	HAL_Delay(50);
 
 }
 
@@ -180,21 +169,20 @@ void SDcard_write_event(){
 //	while(1);
 	}
 
-	fres = f_open(&fil, "datalog7.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
+	fres = f_open(&fil, "datalog3.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
 	if(fres == FR_OK) {
-		myprintf("I was able to open 'datalog7.txt' for writing\r\n");
+		myprintf("I was able to open 'datalog3.txt' for writing\r\n");
 	} else {
 		myprintf("f_open error (%i)\r\n", fres);
 	}
 
-	fres = f_write(&fil, "ID:", strlen("ID:"), &bytesWrote);
+	fres = f_write(&fil, "\r\nID:", strlen("\r\nID:"), &bytesWrote);
 	fres = f_write(&fil, new_event.cat_id, strlen(new_event.cat_id), &bytesWrote);
 	fres = f_write(&fil, ", Duration:", strlen(", Duration:"), &bytesWrote);
 	itoa(new_event.duration,itoaBuf, 10);
 	fres = f_write(&fil, itoaBuf, strlen(itoaBuf), &bytesWrote);
 //	fres = f_write(&fil, ", Time:", strlen(", Time:"), &bytesWrote);
 //	fres = f_write(&fil, real_world_time, strlen(real_world_time), &bytesWrote);
-	fres = f_write(&fil, "ms\r\n", strlen("ms\r\n"), &bytesWrote);
 	myprintf("Data Recorded!\n");
 
 	f_close(&fil);
