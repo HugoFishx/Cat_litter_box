@@ -1,7 +1,7 @@
 #include "MFRC522.h"
 
-#define _chipSelectPin  GPIO_PIN_0//chipSelectPin //change to corresponding pin
-#define _resetPowerDownPin  GPIO_PIN_1//resetPowerDownPin //same here
+#define _chipSelectPin  GPIO_PIN_0		//chipSelectPin
+#define _resetPowerDownPin  GPIO_PIN_1	//resetPowerDownPin
 
 GPIO_InitTypeDef _powerDownPinInput = (GPIO_InitTypeDef){	.Pin = _resetPowerDownPin,
 															.Mode = GPIO_MODE_INPUT,
@@ -12,25 +12,21 @@ GPIO_InitTypeDef _powerDownPinOutput = (GPIO_InitTypeDef){	.Pin = _resetPowerDow
 															.Pull = GPIO_NOPULL,
 															.Speed = GPIO_SPEED_FREQ_LOW  };
 SPI_HandleTypeDef hspi1;
-uint8_t entered = 0;
-uint8_t entered1 = 0;
-uint8_t p = 100;
-uint8_t p1 = 100;
-uint8_t p2 = 100;
+
+
 static uint8_t UNUSED_PIN = UINT8_MAX;
 /**
  * Writes a byte to the specified register in the MFRC522 chip.
  * The interface is described in the datasheet section 8.1.2.
  */
 
-HAL_StatusTypeDef PCD_WriteRegisterOneByte(	PCD_Register reg,	///< The register to write to. One of the PCD_Register enums.
+void PCD_WriteRegisterOneByte(	PCD_Register reg,	///< The register to write to. One of the PCD_Register enums.
 									uint8_t value			///< The value to write.
 								) {
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_RESET);
-	if (HAL_SPI_Transmit(&hspi1, (uint8_t*)&reg, 1, -1) != HAL_OK) return HAL_ERROR;
-	if (HAL_SPI_Transmit(&hspi1, (uint8_t*)&value, 1, -1) != HAL_OK) return HAL_ERROR;
+	HAL_SPI_Transmit(&hspi1, (uint8_t*)&reg, 1, -1) ;
+	HAL_SPI_Transmit(&hspi1, (uint8_t*)&value, 1, -1) ;
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_SET);
-	return HAL_OK;
 } // End PCD_WriteRegister()
 
 /**
@@ -53,12 +49,12 @@ void PCD_WriteRegister(	PCD_Register reg,	///< The register to write to. One of 
  */
 uint8_t PCD_ReadRegisterOneByte(	PCD_Register reg	///< The register to read from. One of the PCD_Register enums.
 								) {
-	uint8_t value;
+	uint8_t value[2];
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_RESET);
 	uint8_t address = 0x80 | reg;					// MSB == 1 is for reading. LSB is not used in address. Datasheet section 8.1.2.3.
-	HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&address, (uint8_t*)&value, 1, -1);
+	HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&address, (uint8_t*)&value, 2, -1);
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_SET);
-	return value;
+	return value[1];
 } // End PCD_ReadRegister()
 
 /**
@@ -118,6 +114,8 @@ void PCD_ClearRegisterBitMask(	PCD_Register reg,	///< The register to update. On
 										uint8_t mask			///< The bits to clear.
 									  ) {
 	uint8_t tmp;
+
+	HAL_Delay(1);
 	tmp = PCD_ReadRegisterOneByte(reg);
 	PCD_WriteRegisterOneByte(reg, tmp & (~mask));		// clear bit mask
 } // End PCD_ClearRegisterBitMask()
@@ -172,7 +170,6 @@ void PCD_Init() {
 	// If a valid pin number has been set, pull device out of power down / reset state.
 	if (_resetPowerDownPin != UNUSED_PIN) {
 		// First set the resetPowerDownPin as digital input, to check the MFRC522 power down mode.
-		//pinMode(_resetPowerDownPin, INPUT);
 		HAL_GPIO_Init(GPIOA, &_powerDownPinInput);
 
 		if (HAL_GPIO_ReadPin(GPIOA, _resetPowerDownPin) == GPIO_PIN_RESET) {	// The MFRC522 chip is in power down mode.
@@ -303,12 +300,9 @@ StatusCode PCD_CommunicateWithPICC(uint8_t command,		///< The command to execute
 	PCD_WriteRegisterOneByte(CommandReg, PCD_Idle);			// Stop any active command.
 	PCD_WriteRegisterOneByte(ComIrqReg, 0x7F);					// Clear all seven interrupt request bits
 	PCD_WriteRegisterOneByte(FIFOLevelReg, 0x80);				// FlushBuffer = 1, FIFO initialization
-	p = PCD_ReadRegisterOneByte(FIFOLevelReg);
-	PCD_WriteRegisterOneByte(FIFODataReg, sendData);	// Write sendData to the FIFO
-	p1 = PCD_ReadRegisterOneByte(FIFOLevelReg);
+	PCD_WriteRegisterOneByte(FIFODataReg, *sendData);	// Write sendData to the FIFO
 	PCD_WriteRegisterOneByte(BitFramingReg, bitFraming);		// Bit adjustments
 	PCD_WriteRegisterOneByte(CommandReg, command);				// Execute the command
-	p2 = PCD_ReadRegisterOneByte(CommandReg);
 	if (command == PCD_Transceive) {
 		PCD_SetRegisterBitMask(BitFramingReg, 0x80);	// StartSend=1, transmission of data starts
 	}
@@ -323,6 +317,7 @@ StatusCode PCD_CommunicateWithPICC(uint8_t command,		///< The command to execute
 		if (n & waitIRq) {					// One of the interrupts that signal success has been set.
 			break;
 		}
+		HAL_Delay(10);
 		if (n & 0x01) {						// Timer interrupt - nothing received in 25ms
 			return STATUS_TIMEOUT;
 		}
@@ -343,7 +338,6 @@ StatusCode PCD_CommunicateWithPICC(uint8_t command,		///< The command to execute
 	if (backData && backLen) {
 		uint8_t n = PCD_ReadRegisterOneByte(FIFOLevelReg) & 0x7F;	// Number of bytes in the FIFO
 		if (n > *backLen) {
-			entered = 1;
 			return STATUS_NO_ROOM;
 		}
 		*backLen = n;											// Number of bytes returned
@@ -403,7 +397,6 @@ StatusCode PICC_REQA_or_WUPA(uint8_t command, 		///< The command to send - PICC_
 	uint8_t validBits;
 	StatusCode status;
 	if (bufferATQA == NULL || *bufferSize < 2) {	// The ATQA response is 2 bytes long.
-		entered1 = 1;
 		return STATUS_NO_ROOM;
 	}
 	PCD_ClearRegisterBitMask(CollReg, 0x80);		// ValuesAfterColl=1 => Bits received after collision are cleared.
@@ -483,6 +476,7 @@ StatusCode PICC_Select(	Uid *uid,			///< Pointer to Uid struct. Normally output,
 	}
 
 	// Prepare MFRC522
+
 	PCD_ClearRegisterBitMask(CollReg, 0x80);		// ValuesAfterColl=1 => Bits received after collision are cleared.
 
 	// Repeat Cascade Level loop until we have a complete UID.
@@ -663,37 +657,7 @@ bool PICC_IsNewCardPresent() {
 	// Reset ModWidthReg
 
 	PCD_WriteRegisterOneByte(ModWidthReg, 0x26);
-	uint8_t status = 0;
 	StatusCode result = PICC_RequestA(bufferATQA, &bufferSize);
-	switch (result) {
-	case STATUS_OK:
-		status = 1;
-		break;
-	case STATUS_ERROR:
-		status = 2;
-		break;
-	case STATUS_COLLISION:
-		status = 3;
-		break;
-	case STATUS_TIMEOUT:
-		status = 4;
-		break;
-	case STATUS_NO_ROOM:
-		status = 5;
-		break;
-	case STATUS_INTERNAL_ERROR:
-		status = 6;
-		break;
-	case STATUS_INVALID:
-		status = 7;
-		break;
-	case STATUS_CRC_WRONG:
-		status = 8;
-		break;
-	case STATUS_MIFARE_NACK:
-		status = 9;
-		break;
-	}
 	return (result == STATUS_OK || result == STATUS_COLLISION);
 } // End PICC_IsNewCardPresent()
 
@@ -705,8 +669,7 @@ bool PICC_IsNewCardPresent() {
  *
  * @return bool
  */
-bool PICC_ReadCardSerial(Uid uid) {
-	//Uid uid;
-	StatusCode result = PICC_Select(&uid,0);
+bool PICC_ReadCardSerial(Uid* uid) {
+	StatusCode result = PICC_Select(uid,0);
 	return (result == STATUS_OK);
 } // End
