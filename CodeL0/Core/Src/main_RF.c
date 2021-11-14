@@ -42,7 +42,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
-
+char content[4];
+uint8_t o ;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -96,13 +97,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   PCD_Init();
 
-  uint8_t p = 100;
-  uint8_t p1 = 100;
-  HAL_StatusTypeDef b;
-  HAL_StatusTypeDef c;
 
-  b = PCD_WriteRegisterOneByte(FIFOLevelReg, 0x80);				// FlushBuffer = 1, FIFO initialization
- 	  p = PCD_ReadRegisterOneByte(FIFOLevelReg);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -113,33 +108,31 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  PCD_WriteRegisterOneByte(FIFODataReg, 0x01);	// Write sendData to the FIFO
-	  p1 = PCD_ReadRegisterOneByte(FIFOLevelReg);
-	  HAL_Delay(500);
 
 
-	  /*
-	  if ( ! PICC_IsNewCardPresent())
+
+
+	  if ( !PICC_IsNewCardPresent())
 	    {
-	      return;
+		  return;
 	    }
 	    // Select one of the cards
-	    if ( ! PICC_ReadCardSerial())
+	  if ( ! PICC_ReadCardSerial(&uid))
 	    {
 	      return;
 	    }
 	    //Show UID on serial monitor
 	    //Serial.print("UID tag :");
-	    char content[4];
+
 	    //byte letter;
 	    //count++;
-	    for (uint8_t i = 0; i < uid.size; i++)
-	    {
-	       /*Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-	       Serial.print(mfrc522.uid.uidByte[i], HEX);*/
-	   //    strcat(content, uid.uidByte[i] < 0x10 ? " 0" : " ");
-	       //content.concat(String(mfrc522.uid.uidByte[i], HEX));
-	   // }
+//	    for (uint8_t i = 0; i < uid.size; i++)
+//	    {
+//	       //Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+//	       //Serial.print(mfrc522.uid.uidByte[i], HEX);*/
+//	       strcat(content, uid.uidByte[i] < 0x10 ? " 0" : " ");
+//	       //content.concat(String(mfrc522.uid.uidByte[i], HEX));
+//		}
 
   }
   /* USER CODE END 3 */
