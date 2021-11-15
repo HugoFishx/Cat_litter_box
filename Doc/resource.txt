@@ -16,6 +16,6 @@ STM32-low power:
 	https://forum.digikey.com/t/low-power-modes-on-the-stm32l0-series/13306
 STM32-FatFs SD card:
 	https://01001000.xyz/2020-08-09-Tutorial-STM32CubeIDE-SD-card/
-WiFi-NTP:
-	https://docs.zentri.com/zentrios/wl/latest/cmd/variables/time#time-rtc
-	https://docs.zentri.com/zentrios/wl/latest/networking-and-security#ntp-client
+AWM037:
+	Manual: https://resources.zentri.com/documentation/datasheets/ADS-MW037-ZentriOS-101R.pdf
+	Configuration: https://docs.zentri.com/zentrios/wl/latest/getting-started
