@@ -27,7 +27,7 @@
 #endif
 
 
-typedef struct {
+typedef struct Uid{
 	uint8_t		size;			// Number of bytes in the UID. 4, 7 or 10.
 	uint8_t		uidByte[10];
 	uint8_t		sak;			// The SAK (Select acknowledge) byte returned from the PICC after successful selection.
@@ -211,11 +211,6 @@ typedef enum  {
 	MF_KEY_SIZE = 6			// A Mifare Crypto1 key is 6 bytes.
 };*/
 
-typedef struct Uid{
-	uint8_t		size;			// Number of bytes in the UID. 4, 7 or 10.
-	uint8_t		uidByte[10];
-	uint8_t		sak;			// The SAK (Select acknowledge) byte returned from the PICC after successful selection.
-} ;
 
 //class MFRC522 {
 //public:
@@ -272,7 +267,7 @@ typedef struct Uid{
 /////////////////////////////////////////////////////////////////////////////////////
 // Basic interface functions for communicating with the MFRC522
 /////////////////////////////////////////////////////////////////////////////////////
-HAL_StatusTypeDef PCD_WriteRegisterOneByte(PCD_Register reg, uint8_t value);
+void PCD_WriteRegisterOneByte(PCD_Register reg, uint8_t value);
 void PCD_WriteRegister(PCD_Register reg, uint8_t count, uint8_t* values);
 uint8_t PCD_ReadRegisterOneByte(PCD_Register reg);
 void PCD_ReadRegister(PCD_Register reg, uint8_t count, uint8_t* values, uint8_t rxAlign);
