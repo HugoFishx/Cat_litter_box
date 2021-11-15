@@ -73,27 +73,23 @@ void PCD_ReadRegister(	PCD_Register reg,	///< The register to read from. One of 
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_RESET);
 	uint8_t address = 0x80 | reg;				// MSB == 1 is for reading. LSB is not used in address. Datasheet section 8.1.2.3.
 	uint8_t index = 0;							// Index in values array.
-	count--;								// One read is performed outside of the loop
-	HAL_SPI_Transmit(&hspi1, (uint8_t*)&address, 1, -1);
-	//SPI.transfer(address);					// Tell MFRC522 which address we want to read
 	if (rxAlign) {		// Only update bit positions rxAlign..7 in values[0]
 		// Create bit mask for bit positions rxAlign..7
 		uint8_t mask = (0xFF << rxAlign) & 0xFF;
 		// Read value and tell that we want to read the same address again.
 		uint8_t value;
-		HAL_SPI_Receive(&hspi1, (uint8_t*)value, 1, -1);
+		HAL_SPI_TransmitReceive(&hspi1, (uint8_t*) &address, (uint8_t*) &value, 2, -1);
 		// Apply mask to both current value of values[0] and the new data in value.
 		values[0] = (values[0] & ~mask) | (value & mask);
 		index++;
 	}
-	while (index < count) {
-		HAL_SPI_Receive(&hspi1, (uint8_t*)values[index], 1, -1);	// Read value and tell that we want to read the same address again.
-		index++;
-	}
-	//values[index] = SPI.transfer(0);			// Read the final byte. Send 0 to stop reading.
+
+	uint8_t address_array[count - index];
+	for (int i = 0; i < count - index; i++)
+		address_array[i] = address;
+
+	HAL_SPI_TransmitReceive(&hspi1, (uint8_t*) address_array, (uint8_t*) &values[index], count - index + 1, -1);
 	HAL_GPIO_WritePin(GPIOA, _chipSelectPin, GPIO_PIN_SET);
-	//digitalWrite(_chipSelectPin, HIGH);			// Release slave again
-	//SPI.endTransaction(); // Stop using the SPI bus
 } // End PCD_ReadRegister()
 
 /**
@@ -103,6 +99,8 @@ void PCD_SetRegisterBitMask(	PCD_Register reg,	///< The register to update. One 
 										uint8_t mask			///< The bits to set.
 									) {
 	uint8_t tmp;
+
+	HAL_Delay(1);
 	tmp = PCD_ReadRegisterOneByte(reg);
 	PCD_WriteRegisterOneByte(reg,tmp | mask);			// set bit mask
 } // End PCD_SetRegisterBitMask()
@@ -300,7 +298,7 @@ StatusCode PCD_CommunicateWithPICC(uint8_t command,		///< The command to execute
 	PCD_WriteRegisterOneByte(CommandReg, PCD_Idle);			// Stop any active command.
 	PCD_WriteRegisterOneByte(ComIrqReg, 0x7F);					// Clear all seven interrupt request bits
 	PCD_WriteRegisterOneByte(FIFOLevelReg, 0x80);				// FlushBuffer = 1, FIFO initialization
-	PCD_WriteRegisterOneByte(FIFODataReg, *sendData);	// Write sendData to the FIFO
+	PCD_WriteRegister(FIFODataReg, sendLen, sendData);	// Write sendData to the FIFO
 	PCD_WriteRegisterOneByte(BitFramingReg, bitFraming);		// Bit adjustments
 	PCD_WriteRegisterOneByte(CommandReg, command);				// Execute the command
 	if (command == PCD_Transceive) {
@@ -317,7 +315,6 @@ StatusCode PCD_CommunicateWithPICC(uint8_t command,		///< The command to execute
 		if (n & waitIRq) {					// One of the interrupts that signal success has been set.
 			break;
 		}
-		HAL_Delay(10);
 		if (n & 0x01) {						// Timer interrupt - nothing received in 25ms
 			return STATUS_TIMEOUT;
 		}
@@ -569,7 +566,13 @@ StatusCode PICC_Select(	Uid *uid,			///< Pointer to Uid struct. Normally output,
 			PCD_WriteRegisterOneByte(BitFramingReg, (rxAlign << 4) + txLastBits);	// RxAlign = BitFramingReg[6..4]. TxLastBits = BitFramingReg[2..0]
 
 			// Transmit the buffer and receive the response.
-			result = PCD_TransceiveData(buffer, bufferUsed, responseBuffer, &responseLength, &txLastBits, rxAlign,false);
+			result = PCD_TransceiveData(buffer, bufferUsed, responseBuffer, &responseLength, &txLastBits, rxAlign, false);
+
+			// SELF_MODIFIED CODE START
+			memcpy(&(uid->uidByte), responseBuffer, responseLength);
+			return STATUS_OK;
+			// SELF_MODIFIED CODE END
+
 			if (result == STATUS_COLLISION) { // More than one PICC in the field => collision.
 				uint8_t valueOfCollReg = PCD_ReadRegisterOneByte(CollReg); // CollReg[7..0] bits are: ValuesAfterColl reserved CollPosNotValid CollPos[4:0]
 				if (valueOfCollReg & 0x20) { // CollPosNotValid
