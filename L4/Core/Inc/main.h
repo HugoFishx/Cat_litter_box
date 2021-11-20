@@ -65,26 +65,29 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
+#define B1_EXTI_IRQn EXTI15_10_IRQn
+#define MOTION_SENSOR_PIN_Pin GPIO_PIN_1
+#define MOTION_SENSOR_PIN_GPIO_Port GPIOA
 #define USART_RX_Pin GPIO_PIN_3
 #define USART_RX_GPIO_Port GPIOA
 #define BATTERY_LOW_LED_Pin GPIO_PIN_5
 #define BATTERY_LOW_LED_GPIO_Port GPIOA
-#define CS_SD_Pin GPIO_PIN_13
-#define CS_SD_GPIO_Port GPIOB
-#define DET_Pin GPIO_PIN_14
-#define DET_GPIO_Port GPIOB
+#define WIFI_RESET_Pin GPIO_PIN_7
+#define WIFI_RESET_GPIO_Port GPIOA
+#define MICROSD_CS_Pin GPIO_PIN_6
+#define MICROSD_CS_GPIO_Port GPIOC
+#define MICROSD_DET_Pin GPIO_PIN_7
+#define MICROSD_DET_GPIO_Port GPIOC
 #define WIFI_EN_Pin GPIO_PIN_8
 #define WIFI_EN_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
+#define RFID_CS_Pin GPIO_PIN_2
+#define RFID_CS_GPIO_Port GPIOD
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
-#define RFID_CS_Pin GPIO_PIN_6
-#define RFID_CS_GPIO_Port GPIOB
-#define RFID_RESET_Pin GPIO_PIN_7
-#define RFID_RESET_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 #define SDCARD_SPI_PORT hspi2 // use SPI2
 /* USER CODE END Private defines */
