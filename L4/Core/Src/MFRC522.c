@@ -1,6 +1,8 @@
 #include "MFRC522.h"
+#include "main.h"
 
-#define _chipSelectPin  GPIO_PIN_6		//chipSelectPin
+#define _chipSelectPin  RFID_CS_Pin		//chipSelectPin
+#define _chipSelectPort RFID_CS_GPIO_Port
 #define _resetPowerDownPin  GPIO_PIN_7	//resetPowerDownPin
 
 GPIO_InitTypeDef _powerDownPinInput = (GPIO_InitTypeDef){	.Pin = _resetPowerDownPin,
@@ -23,10 +25,10 @@ static uint8_t UNUSED_PIN = UINT8_MAX;
 void PCD_WriteRegisterOneByte(	PCD_Register reg,	///< The register to write to. One of the PCD_Register enums.
 									uint8_t value			///< The value to write.
 								) {
-	HAL_GPIO_WritePin(GPIOB, _chipSelectPin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(_chipSelectPort, _chipSelectPin, GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi3, (uint8_t*)&reg, 1, -1) ;
 	HAL_SPI_Transmit(&hspi3, (uint8_t*)&value, 1, -1) ;
-	HAL_GPIO_WritePin(GPIOB, _chipSelectPin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(_chipSelectPort, _chipSelectPin, GPIO_PIN_SET);
 } // End PCD_WriteRegister()
 
 /**
@@ -37,10 +39,10 @@ void PCD_WriteRegister(	PCD_Register reg,	///< The register to write to. One of 
 									uint8_t count,			///< The number of bytes to write to the register
 									uint8_t *values		///< The values to write. Byte array.
 								) {
-	HAL_GPIO_WritePin(GPIOB, _chipSelectPin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(_chipSelectPort, _chipSelectPin, GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi3, (uint8_t*)&reg, 1, -1);
 	HAL_SPI_Transmit(&hspi3, (uint8_t*)values, count, -1);
-	HAL_GPIO_WritePin(GPIOB, _chipSelectPin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(_chipSelectPort, _chipSelectPin, GPIO_PIN_SET);
 } // End PCD_WriteRegister()
 
 /**
@@ -50,10 +52,10 @@ void PCD_WriteRegister(	PCD_Register reg,	///< The register to write to. One of 
 uint8_t PCD_ReadRegisterOneByte(	PCD_Register reg	///< The register to read from. One of the PCD_Register enums.
 								) {
 	uint8_t value[2];
-	HAL_GPIO_WritePin(GPIOB, _chipSelectPin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(_chipSelectPort, _chipSelectPin, GPIO_PIN_RESET);
 	uint8_t address = 0x80 | reg;					// MSB == 1 is for reading. LSB is not used in address. Datasheet section 8.1.2.3.
 	HAL_SPI_TransmitReceive(&hspi3, (uint8_t*)&address, (uint8_t*)&value, 2, -1);
-	HAL_GPIO_WritePin(GPIOB, _chipSelectPin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(_chipSelectPort, _chipSelectPin, GPIO_PIN_SET);
 	return value[1];
 } // End PCD_ReadRegister()
 
@@ -70,7 +72,7 @@ void PCD_ReadRegister(	PCD_Register reg,	///< The register to read from. One of 
 	if (count == 0) {
 		return;
 	}
-	HAL_GPIO_WritePin(GPIOB, _chipSelectPin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(_chipSelectPort, _chipSelectPin, GPIO_PIN_RESET);
 	uint8_t address = 0x80 | reg;				// MSB == 1 is for reading. LSB is not used in address. Datasheet section 8.1.2.3.
 	uint8_t index = 0;							// Index in values array.
 	if (rxAlign) {		// Only update bit positions rxAlign..7 in values[0]
@@ -89,7 +91,7 @@ void PCD_ReadRegister(	PCD_Register reg,	///< The register to read from. One of 
 		address_array[i] = address;
 
 	HAL_SPI_TransmitReceive(&hspi3, (uint8_t*) address_array, (uint8_t*) &values[index], count - index + 1, -1);
-	HAL_GPIO_WritePin(GPIOB, _chipSelectPin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(_chipSelectPort, _chipSelectPin, GPIO_PIN_SET);
 } // End PCD_ReadRegister()
 
 /**
@@ -163,18 +165,18 @@ StatusCode PCD_CalculateCRC(uint8_t*data,		///< In: Pointer to the data to trans
  */
 void PCD_Init() {
 	bool hardReset = false;
-
-	HAL_GPIO_WritePin(GPIOB, _chipSelectPin, GPIO_PIN_SET);
+	/*
+	HAL_GPIO_WritePin(_chipSelectPort, _chipSelectPin, GPIO_PIN_SET);
 	// If a valid pin number has been set, pull device out of power down / reset state.
 	if (_resetPowerDownPin != UNUSED_PIN) {
 		// First set the resetPowerDownPin as digital input, to check the MFRC522 power down mode.
-		HAL_GPIO_Init(GPIOB, &_powerDownPinInput);
+		HAL_GPIO_Init(_chipSelectPort, &_powerDownPinInput);
 
-		if (HAL_GPIO_ReadPin(GPIOB, _resetPowerDownPin) == GPIO_PIN_RESET) {	// The MFRC522 chip is in power down mode.
-			HAL_GPIO_Init(GPIOB, &_powerDownPinOutput);
-			HAL_GPIO_WritePin(GPIOB, _resetPowerDownPin, GPIO_PIN_RESET);
+		if (HAL_GPIO_ReadPin(_chipSelectPort, _resetPowerDownPin) == GPIO_PIN_RESET) {	// The MFRC522 chip is in power down mode.
+			HAL_GPIO_Init(_chipSelectPort, &_powerDownPinOutput);
+			HAL_GPIO_WritePin(_chipSelectPort, _resetPowerDownPin, GPIO_PIN_RESET);
 			HAL_Delay(1);
-			HAL_GPIO_WritePin(GPIOB, _resetPowerDownPin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(_chipSelectPort, _resetPowerDownPin, GPIO_PIN_SET);
 			HAL_Delay(50);
 			hardReset = true;
 		}
@@ -183,7 +185,7 @@ void PCD_Init() {
 	if (!hardReset) { // Perform a soft reset if we haven't triggered a hard reset above.
 		PCD_Reset();
 	}
-
+	*/
 	// Reset baud rates
 	PCD_WriteRegisterOneByte(TxModeReg, 0x00);
 	PCD_WriteRegisterOneByte(RxModeReg, 0x00);

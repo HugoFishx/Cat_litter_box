@@ -33,11 +33,19 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+union {
+	char content[4];
+	unsigned int cat_ID;
+} RFID_tag;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define TIME_BYTELENGTH 20
+#define BATTERY_LOW_VOLTAGE 3
+#define BATTERY_HIGH_VOLTAGE 3.2
+#define TIMER_PERIOD 0xFFFF
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -57,22 +65,19 @@ SPI_HandleTypeDef hspi3;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-
-#define TIME_BYTELENGTH 20
-
 unsigned long start_time;
 unsigned long end_time;
-
 struct poop_event new_event;
 char real_world_time[TIME_BYTELENGTH];
-int cat_in_flag = 0;
-union {
-	char content[4];
-	unsigned int cat_ID;
-}RFID_tag;
-unsigned int wifi_flag = 0;
+
+volatile unsigned int cat_in_flag = 0;
+volatile unsigned int wifi_flag = 0;
+volatile unsigned int bat_sense_flag = 0;
+
+unsigned int rfid_timeout = 100;
 //char content[4];
 Uid uid;
 
@@ -89,12 +94,14 @@ static void MX_ADC1_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_LPTIM1_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void myprintf(const char *fmt, ...);
 void SDcard_write_event();
 void Wifi_write_event();
 void Wifi_read_time();
 void RFID_read();
+void Battery_Sensing();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -138,9 +145,12 @@ int main(void)
   MX_SPI3_Init();
   MX_USART1_UART_Init();
   MX_LPTIM1_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_LPTIM_Counter_Start_IT(&hlptim1, TIMER_PERIOD);
   PCD_Init();
+
+  // TODO: get RTC here
 
   /* USER CODE END 2 */
 
@@ -152,13 +162,14 @@ int main(void)
 	  if(cat_in_flag){//		RFID read function here
 		  RFID_read();
 	  }
-	  if(wifi_flag){
 
+	  if(wifi_flag){
 		  Wifi_write_event();
 		  wifi_flag=0;
 	  }
 
-
+	  if (bat_sense_flag)
+		  Battery_Sensing();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -532,6 +543,41 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 115200;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -564,7 +610,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : MOTION_SENSOR_PIN_Pin */
   GPIO_InitStruct.Pin = MOTION_SENSOR_PIN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(MOTION_SENSOR_PIN_GPIO_Port, &GPIO_InitStruct);
 
@@ -603,20 +649,20 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void myprintf(const char *fmt, ...) {
-  static char buffer[256];
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(buffer, sizeof(buffer), fmt, args);
-  va_end(args);
-  int len = strlen(buffer);
-  HAL_UART_Transmit(&huart5, (uint8_t*)buffer, len, -1);
+	static char buffer[256];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+	va_end(args);
+	int len = strlen(buffer);
+	HAL_UART_Transmit(&huart3, (uint8_t*)buffer, len, -1);
 
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if(GPIO_Pin == GPIO_PIN_9) // Pin enabled in pinout is PC9
+	if(GPIO_Pin == MOTION_SENSOR_PIN_Pin) // Pin enabled in pinout is PC9
 	{
-		if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_9)) { // check whether enter or leave
+		if(HAL_GPIO_ReadPin(MOTION_SENSOR_PIN_GPIO_Port, MOTION_SENSOR_PIN_Pin)) { // check whether enter or leave
 			/*enter handler*/
 			myprintf("Motion Sensor ON!\r\n");
 			start_time = HAL_GetTick();
@@ -631,14 +677,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			myprintf("Duration: %i \r\n", new_event.duration);
 
 			if(RFID_tag.cat_ID){
-//				Wifi_write_event();
+	//				Wifi_write_event();
 				if(!wifi_flag){
 					wifi_flag=1;
 				}
 
-
-
-//				Wifi_read_time();
 				SDcard_write_event();
 				myprintf("Data Recorded!\n");
 			}
@@ -647,8 +690,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			}
 
 			RFID_tag.cat_ID=0;
-
-
 			cat_in_flag = 0;
 
 			// go_to_sleep(); need another interuppt from wifi
@@ -669,23 +710,18 @@ void Wifi_write_event(){
 	strcat(wifi_buffer,itoaBuf_wifi);
 	strcat(wifi_buffer,"\r");
 
-	HAL_UART_Transmit(&huart1, "stream_close 0\r", strlen("stream_close 0\r"),-1);
+	HAL_UART_Transmit(&huart1, (uint8_t*) "stream_close 0\r", strlen("stream_close 0\r"), -1);
 	HAL_Delay(1000);
-//	for(i=0;i<100000;i++);
-//	i=0;
-	HAL_UART_Transmit(&huart1, wifi_buffer, strlen(wifi_buffer),-1);
-//	for(i=0;i<100000;i++);
-//	i=0;
+	HAL_UART_Transmit(&huart1, (uint8_t*) wifi_buffer, strlen(wifi_buffer),-1);
 	HAL_Delay(1000);
-	HAL_UART_Transmit(&huart1, "stream_close 0\r", strlen("stream_close 0\r"),-1);
+	HAL_UART_Transmit(&huart1, (uint8_t*) "stream_close 0\r", strlen("stream_close 0\r"), -1);
 	HAL_Delay(1000);
 
 
 }
 
 void Wifi_read_time(){
-
-	HAL_UART_Receive(&huart1, real_world_time, TIME_BYTELENGTH,-1);
+	HAL_UART_Receive(&huart1, (uint8_t*) real_world_time, TIME_BYTELENGTH,-1);
 
 }
 
@@ -697,9 +733,8 @@ void SDcard_write_event(){
 	char itoaBuf[20];
 	fres = f_mount(&FatFs, "", 0); //	1=mount now
 	if (fres != FR_OK) {
-	myprintf("f_mount error (%i)\r\n", fres);
-	return;
-//	while(1);
+		myprintf("f_mount error (%i)\r\n", fres);
+		return;
 	}
 
 	fres = f_open(&fil, "datalog8.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
@@ -722,25 +757,36 @@ void SDcard_write_event(){
 	f_close(&fil);
 
 	f_mount(NULL, "", 0);
-
 }
 
 void RFID_read(){
-  if ( !PICC_IsNewCardPresent())
-	   {
-	  return;
-	   }
-	   // Select one of the cards
-	 while ( ! PICC_ReadCardSerial(&uid))
-	   {
-		 HAL_Delay(100);
-	   }
-	 for(int i=0;i<4;i++) {
-		 RFID_tag.content[i] = uid.uidByte[i+1];
-	   }
-	 myprintf("Tag DETECTED!\r\n");
-	 HAL_Delay(100);
+	if ( !PICC_IsNewCardPresent())
+		return;
+	while ( ! PICC_ReadCardSerial(&uid) && rfid_timeout--);
+
+
+	for(int i=0;i<4;i++) {
+	 RFID_tag.content[i] = uid.uidByte[i+1];
+	}
+	myprintf("Tag DETECTED!\r\n");
+	HAL_Delay(100);
+
+	rfid_timeout = 100;
 }
+
+void Battery_Sensing() {
+	HAL_ADC_Start(&hadc1);
+	if (HAL_ADC_PollForConversion(&hadc1, 0xFFFF) == HAL_OK) {
+		float value = HAL_ADC_GetValue(&hadc1) * 3.3 / 4096;
+		if (value < BATTERY_LOW_VOLTAGE)
+			HAL_GPIO_WritePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin, GPIO_PIN_SET);
+		else if (value > BATTERY_HIGH_VOLTAGE)
+			HAL_GPIO_WritePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin, GPIO_PIN_RESET);
+	}
+	HAL_ADC_Stop(&hadc1);
+	bat_sense_flag = 0;
+}
+
 /* USER CODE END 4 */
 
 /**
