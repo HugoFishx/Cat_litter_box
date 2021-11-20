@@ -71,6 +71,7 @@ union {
 	char content[4];
 	unsigned int cat_ID;
 }RFID_tag;
+unsigned int wifi_flag = 0;
 //char content[4];
 Uid uid;
 
@@ -127,7 +128,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			myprintf("Duration: %i \r\n", new_event.duration);
 
 			if(RFID_tag.cat_ID){
-				Wifi_write_event();
+//				Wifi_write_event();
+				if(!wifi_flag){
+					wifi_flag=1;
+				}
+
+
+
 //				Wifi_read_time();
 				SDcard_write_event();
 				myprintf("Data Recorded!\n");
@@ -149,21 +156,27 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 void Wifi_write_event(){
 	char wifi_buffer[100]="http_get 192.168.220.129:12345/query/id=";
-	char itoaBuf[20];
+	char itoaBuf_wifi[20];
+//	volatile int i=0;
 
-	itoa(new_event.cat_id,itoaBuf, 10);
-	strcat(wifi_buffer,itoaBuf);
+	itoa(new_event.cat_id,itoaBuf_wifi, 10);
+	strcat(wifi_buffer,itoaBuf_wifi);
 	strcat(wifi_buffer,"&n=");
-	itoa(new_event.duration,itoaBuf, 10);
-	strcat(wifi_buffer,itoaBuf);
+	itoa(new_event.duration,itoaBuf_wifi, 10);
+	strcat(wifi_buffer,itoaBuf_wifi);
 	strcat(wifi_buffer,"\r");
 
 	HAL_UART_Transmit(&huart1, "stream_close 0\r", strlen("stream_close 0\r"),-1);
-//	HAL_Delay(50);
+	HAL_Delay(1000);
+//	for(i=0;i<100000;i++);
+//	i=0;
 	HAL_UART_Transmit(&huart1, wifi_buffer, strlen(wifi_buffer),-1);
-//	HAL_Delay(50);
+//	for(i=0;i<100000;i++);
+//	i=0;
+	HAL_Delay(1000);
 	HAL_UART_Transmit(&huart1, "stream_close 0\r", strlen("stream_close 0\r"),-1);
-//	HAL_Delay(50);
+	HAL_Delay(1000);
+
 
 }
 
@@ -188,7 +201,7 @@ void SDcard_write_event(){
 
 	fres = f_open(&fil, "datalog8.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
 	if(fres == FR_OK) {
-//		myprintf("I was able to open 'datalog8.txt' for writing\r\n");
+		myprintf("I was able to open 'datalog8.txt' for writing\r\n");
 	} else {
 		myprintf("f_open error (%i)\r\n", fres);
 	}
@@ -277,6 +290,11 @@ int main(void)
 
 	  if(cat_in_flag){//		RFID read function here
 		  RFID_read();
+	  }
+	  if(wifi_flag){
+
+		  Wifi_write_event();
+		  wifi_flag=0;
 	  }
 
 
