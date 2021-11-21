@@ -32,7 +32,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define BATTERY_LOW_VOLTAGE 3
+#define BATTERY_HIGH_VOLTAGE 3.2
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -42,7 +43,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-extern int bat_sense_flag;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,7 +58,9 @@ extern int bat_sense_flag;
 /* External variables --------------------------------------------------------*/
 extern LPTIM_HandleTypeDef hlptim1;
 /* USER CODE BEGIN EV */
-
+extern ADC_HandleTypeDef hadc1;
+extern volatile unsigned int cat_in_flag;
+extern volatile unsigned int wifi_flag;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -223,7 +225,17 @@ void LPTIM1_IRQHandler(void)
   /* USER CODE END LPTIM1_IRQn 0 */
   HAL_LPTIM_IRQHandler(&hlptim1);
   /* USER CODE BEGIN LPTIM1_IRQn 1 */
-  bat_sense_flag = 1;
+	HAL_ADC_Start(&hadc1);
+	if (HAL_ADC_PollForConversion(&hadc1, 0xFFFF) == HAL_OK) {
+		float value = HAL_ADC_GetValue(&hadc1) * 3.3 / 4096;
+		if (value < BATTERY_LOW_VOLTAGE)
+			HAL_GPIO_WritePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin, GPIO_PIN_SET);
+		else if (value > BATTERY_HIGH_VOLTAGE)
+			HAL_GPIO_WritePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin, GPIO_PIN_RESET);
+	}
+	HAL_ADC_Stop(&hadc1);
+
+	// if the reset of the system is not working, then enter low-power sleep mode
 
   /* USER CODE END LPTIM1_IRQn 1 */
 }
