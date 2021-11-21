@@ -43,8 +43,6 @@ union {
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define TIME_BYTELENGTH 20
-#define BATTERY_LOW_VOLTAGE 3
-#define BATTERY_HIGH_VOLTAGE 3.2
 #define TIMER_PERIOD 0xFFFF
 /* USER CODE END PD */
 
@@ -75,10 +73,7 @@ char real_world_time[TIME_BYTELENGTH];
 
 volatile unsigned int cat_in_flag = 0;
 volatile unsigned int wifi_flag = 0;
-volatile unsigned int bat_sense_flag = 0;
 
-unsigned int rfid_timeout = 100;
-//char content[4];
 Uid uid;
 
 
@@ -158,18 +153,24 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+  	// disable Sleep on EXIT to stop the system from entering low-power mode until the whole work is done.
 
-	  if(cat_in_flag){//		RFID read function here
+	  if(cat_in_flag) {//		RFID read function here
 		  RFID_read();
 	  }
 
-	  if(wifi_flag){
+	  if(wifi_flag) {
 		  Wifi_write_event();
-		  wifi_flag=0;
+		  wifi_flag = 0;
 	  }
 
-	  if (bat_sense_flag)
-		  Battery_Sensing();
+	  // enter low power sleep mode
+	  HAL_SuspendTick();
+	  HAL_PWR_EnableSleepOnExit();
+	  HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+
+	  // exit the low power mode
+	  HAL_ResumeTick();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -662,38 +663,40 @@ void myprintf(const char *fmt, ...) {
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if(GPIO_Pin == MOTION_SENSOR_PIN_Pin) // Pin enabled in pinout is PC9
 	{
+  	HAL_PWR_DisableSleepOnExit();
+
 		if(HAL_GPIO_ReadPin(MOTION_SENSOR_PIN_GPIO_Port, MOTION_SENSOR_PIN_Pin)) { // check whether enter or leave
 			/*enter handler*/
 			myprintf("Motion Sensor ON!\r\n");
+			// TODO: change getTick to getRTC() for more accurate timing
 			start_time = HAL_GetTick();
 			cat_in_flag = 1;
 		  } else {
-			/*leave handler*/
-			myprintf("Motion Sensor OFF! \r\n");
-			end_time = HAL_GetTick();
-			new_event.cat_id=RFID_tag.cat_ID;
-			new_event.duration = end_time - start_time;
-			myprintf("ID: %i \r\n", new_event.cat_id);
-			myprintf("Duration: %i \r\n", new_event.duration);
+		  	/*leave handler*/
+				myprintf("Motion Sensor OFF! \r\n");
+				end_time = HAL_GetTick();
+				new_event.cat_id=RFID_tag.cat_ID;
+				new_event.duration = end_time - start_time;
+				myprintf("ID: %i \r\n", new_event.cat_id);
+				myprintf("Duration: %i \r\n", new_event.duration);
 
-			if(RFID_tag.cat_ID){
-	//				Wifi_write_event();
-				if(!wifi_flag){
-					wifi_flag=1;
+				if(RFID_tag.cat_ID){
+					// Wifi_write_event();
+					if(!wifi_flag){
+						wifi_flag = 1;
+					}
+
+					SDcard_write_event();
+					myprintf("Data Recorded!\n");
+				}
+				else{
+					myprintf("Data NOT Recorded!\n");
 				}
 
-				SDcard_write_event();
-				myprintf("Data Recorded!\n");
-			}
-			else{
-				myprintf("Data NOT Recorded!\n");
-			}
+				RFID_tag.cat_ID = 0;
+				cat_in_flag = 0;
 
-			RFID_tag.cat_ID=0;
-			cat_in_flag = 0;
-
-			// go_to_sleep(); need another interuppt from wifi
-
+				// go_to_sleep(); need another interuppt from wifi
 		  }
 	}
 }
@@ -701,7 +704,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 void Wifi_write_event(){
 	char wifi_buffer[100]="http_get 192.168.220.129:12345/query/id=";
 	char itoaBuf_wifi[20];
-//	volatile int i=0;
 
 	itoa(new_event.cat_id,itoaBuf_wifi, 10);
 	strcat(wifi_buffer,itoaBuf_wifi);
@@ -737,7 +739,7 @@ void SDcard_write_event(){
 		return;
 	}
 
-	fres = f_open(&fil, "datalog8.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
+	fres = f_open(&fil, "dataloga.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
 	if(fres == FR_OK) {
 		myprintf("I was able to open 'datalog8.txt' for writing\r\n");
 	} else {
@@ -760,32 +762,23 @@ void SDcard_write_event(){
 }
 
 void RFID_read(){
-	if ( !PICC_IsNewCardPresent())
-		return;
+	unsigned int rfid_timeout = 100;
+
+	if ( !PICC_IsNewCardPresent())	return;
 	while ( ! PICC_ReadCardSerial(&uid) && rfid_timeout--);
 
+	if (rfid_timeout == 0) {
+		myprintf("Tag NOT detected! \r\n");
+		return;
+	}
 
-	for(int i=0;i<4;i++) {
-	 RFID_tag.content[i] = uid.uidByte[i+1];
+	for(int i = 0; i < 4; i++) {
+		RFID_tag.content[i] = uid.uidByte[i+1];
 	}
 	myprintf("Tag DETECTED!\r\n");
 	HAL_Delay(100);
-
-	rfid_timeout = 100;
 }
 
-void Battery_Sensing() {
-	HAL_ADC_Start(&hadc1);
-	if (HAL_ADC_PollForConversion(&hadc1, 0xFFFF) == HAL_OK) {
-		float value = HAL_ADC_GetValue(&hadc1) * 3.3 / 4096;
-		if (value < BATTERY_LOW_VOLTAGE)
-			HAL_GPIO_WritePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin, GPIO_PIN_SET);
-		else if (value > BATTERY_HIGH_VOLTAGE)
-			HAL_GPIO_WritePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin, GPIO_PIN_RESET);
-	}
-	HAL_ADC_Stop(&hadc1);
-	bat_sense_flag = 0;
-}
 
 /* USER CODE END 4 */
 
