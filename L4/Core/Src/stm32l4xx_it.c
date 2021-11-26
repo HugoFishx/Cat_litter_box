@@ -225,6 +225,10 @@ void LPTIM1_IRQHandler(void)
   /* USER CODE END LPTIM1_IRQn 0 */
   HAL_LPTIM_IRQHandler(&hlptim1);
   /* USER CODE BEGIN LPTIM1_IRQn 1 */
+  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+  return;
+
+
 	HAL_ADC_Start(&hadc1);
 	if (HAL_ADC_PollForConversion(&hadc1, 0xFFFF) == HAL_OK) {
 		float value = HAL_ADC_GetValue(&hadc1) * 3.3 / 4096;
