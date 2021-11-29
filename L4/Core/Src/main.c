@@ -76,7 +76,7 @@ volatile unsigned int wifi_flag = 0;
 
 Uid uid;
 
-
+char tmp[100];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,10 +93,12 @@ static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void myprintf(const char *fmt, ...);
 void SDcard_write_event();
+void Wifi_Init();
 void Wifi_write_event();
 void Wifi_read_time();
 void RFID_read();
 void Battery_Sensing();
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -138,14 +140,16 @@ int main(void)
   MX_FATFS_Init();
   MX_ADC1_Init();
   MX_SPI3_Init();
-  MX_USART1_UART_Init();
+//  MX_USART1_UART_Init();
   MX_LPTIM1_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_LPTIM_Counter_Start_IT(&hlptim1, 10000);
-  //PCD_Init();
+  //HAL_LPTIM_Counter_Start_IT(&hlptim1, 10000);
+  PCD_Init();
+  Wifi_Init();
 
   // TODO: get RTC here
+
 
   /* USER CODE END 2 */
 
@@ -155,13 +159,14 @@ int main(void)
   {
   	// disable Sleep on EXIT to stop the system from entering low-power mode until the whole work is done.
 	  if(cat_in_flag) {//		RFID read function here
+
 		  RFID_read();
 	  }
 
-	  if(wifi_flag) {
-		  Wifi_write_event();
-		  wifi_flag = 0;
-	  }
+//	  if(wifi_flag) {
+//		  Wifi_write_event();
+//		  wifi_flag = 0;
+//	  }
 
 //	  // enter low power sleep mode
 //	  HAL_SuspendTick();
@@ -486,7 +491,7 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
   huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_RTS_CTS;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
@@ -603,7 +608,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : MOTION_SENSOR_PIN_Pin */
   GPIO_InitStruct.Pin = MOTION_SENSOR_PIN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(MOTION_SENSOR_PIN_GPIO_Port, &GPIO_InitStruct);
 
@@ -635,6 +640,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(RFID_CS_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
@@ -643,7 +651,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 void myprintf(const char *fmt, ...) {
-	static char buffer[256];
+	static char buffer[100];
 	va_list args;
 	va_start(args, fmt);
 	vsnprintf(buffer, sizeof(buffer), fmt, args);
@@ -651,11 +659,14 @@ void myprintf(const char *fmt, ...) {
 	int len = strlen(buffer);
 	HAL_UART_Transmit(&huart3, (uint8_t*)buffer, len, -1);
 
+//	memcpy(tmp, buffer,100);
+
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if(GPIO_Pin == MOTION_SENSOR_PIN_Pin) // Pin enabled in pinout is PC9
 	{
+//		//TODO: SleepModeExit
   	HAL_PWR_DisableSleepOnExit();
 
 		if(HAL_GPIO_ReadPin(MOTION_SENSOR_PIN_GPIO_Port, MOTION_SENSOR_PIN_Pin)) { // check whether enter or leave
@@ -674,10 +685,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 				myprintf("Duration: %i \r\n", new_event.duration);
 
 				if(RFID_tag.cat_ID){
-					// Wifi_write_event();
-					if(!wifi_flag){
-						wifi_flag = 1;
-					}
+					 Wifi_write_event();
+//					if(!wifi_flag){
+//						wifi_flag = 1;
+//					}
 
 					SDcard_write_event();
 					myprintf("Data Recorded!\n");
@@ -694,10 +705,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	}
 }
 
+void Wifi_Init(){
+	HAL_GPIO_WritePin(WIFI_RESET_GPIO_Port, WIFI_RESET_Pin,GPIO_PIN_SET);
+	HAL_GPIO_WritePin(WIFI_EN_GPIO_Port, WIFI_EN_Pin,GPIO_PIN_SET);
+	HAL_Delay(3000);
+	HAL_UART_Transmit(&huart1, (uint8_t*) "network_up\r", strlen("network_up\r"), -1);
+	HAL_Delay(3000);
+}
+
 void Wifi_write_event(){
-	char wifi_buffer[100]="http_get 192.168.220.129:12345/query/id=";
+	char wifi_buffer[100]="http_get 192.168.220.130:12345/query/id="; //server ip address
 	char itoaBuf_wifi[20];
-//	volatile int i=0;
 
 	itoa(new_event.cat_id,itoaBuf_wifi, 10);
 	strcat(wifi_buffer,itoaBuf_wifi);
@@ -706,12 +724,15 @@ void Wifi_write_event(){
 	strcat(wifi_buffer,itoaBuf_wifi);
 	strcat(wifi_buffer,"\r");
 
+//	HAL_GPIO_WritePin(WIFI_RESET_GPIO_Port, WIFI_RESET_Pin,GPIO_PIN_SET);
+//	HAL_GPIO_WritePin(WIFI_EN_GPIO_Port, WIFI_EN_Pin,GPIO_PIN_SET);
+//	HAL_Delay(1000);
 	HAL_UART_Transmit(&huart1, (uint8_t*) "stream_close 0\r", strlen("stream_close 0\r"), -1);
-	HAL_Delay(1000);
+	HAL_Delay(500);
 	HAL_UART_Transmit(&huart1, (uint8_t*) wifi_buffer, strlen(wifi_buffer),-1);
-	HAL_Delay(1000);
+	HAL_Delay(500);
 	HAL_UART_Transmit(&huart1, (uint8_t*) "stream_close 0\r", strlen("stream_close 0\r"), -1);
-	HAL_Delay(1000);
+	HAL_Delay(500);
 
 
 }
@@ -733,7 +754,7 @@ void SDcard_write_event(){
 		return;
 	}
 
-	fres = f_open(&fil, "datalog8.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
+	fres = f_open(&fil, "dataloga.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
 	if(fres == FR_OK) {
 		myprintf("I was able to open 'datalog8.txt' for writing\r\n");
 	} else {
