@@ -70,6 +70,7 @@ unsigned long start_time;
 unsigned long end_time;
 struct poop_event new_event;
 char real_world_time[TIME_BYTELENGTH];
+int poop_count = 0;
 
 volatile unsigned int cat_in_flag = 0;
 volatile unsigned int wifi_flag = 0;
@@ -140,13 +141,15 @@ int main(void)
   MX_FATFS_Init();
   MX_ADC1_Init();
   MX_SPI3_Init();
-//  MX_USART1_UART_Init();
+  MX_USART1_UART_Init();
   MX_LPTIM1_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   //HAL_LPTIM_Counter_Start_IT(&hlptim1, 10000);
   PCD_Init();
   Wifi_Init();
+  poop_count = 0;
+
 
   // TODO: get RTC here
 
@@ -157,16 +160,19 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-  	// disable Sleep on EXIT to stop the system from entering low-power mode until the whole work is done.
 	  if(cat_in_flag) {//		RFID read function here
-
 		  RFID_read();
 	  }
 
-//	  if(wifi_flag) {
-//		  Wifi_write_event();
-//		  wifi_flag = 0;
-//	  }
+	  if(wifi_flag) {
+		  Wifi_write_event();
+		  SDcard_write_event();
+		  wifi_flag = 0;
+	  }
+
+	  if(poop_count >= 3){
+		  HAL_GPIO_WritePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin, SET);
+	  }
 
 //	  // enter low power sleep mode
 //	  HAL_SuspendTick();
@@ -667,7 +673,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if(GPIO_Pin == MOTION_SENSOR_PIN_Pin) // Pin enabled in pinout is PC9
 	{
 //		//TODO: SleepModeExit
-  	HAL_PWR_DisableSleepOnExit();
+//  	HAL_PWR_DisableSleepOnExit();
 
 		if(HAL_GPIO_ReadPin(MOTION_SENSOR_PIN_GPIO_Port, MOTION_SENSOR_PIN_Pin)) { // check whether enter or leave
 			/*enter handler*/
@@ -684,23 +690,24 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 				myprintf("ID: %i \r\n", new_event.cat_id);
 				myprintf("Duration: %i \r\n", new_event.duration);
 
-				if(RFID_tag.cat_ID){
-					 Wifi_write_event();
-//					if(!wifi_flag){
-//						wifi_flag = 1;
-//					}
+//				if(RFID_tag.cat_ID){
+//					 Wifi_write_event();
+				wifi_flag = 1;
 
-					SDcard_write_event();
+//					SDcard_write_event();
 					myprintf("Data Recorded!\n");
-				}
-				else{
-					myprintf("Data NOT Recorded!\n");
+//				}
+////				else{
+//					myprintf("Data NOT Recorded!\n");
+//				}
+				if(RFID_tag.cat_ID){
+					poop_count++;
 				}
 
 				RFID_tag.cat_ID = 0;
 				cat_in_flag = 0;
 
-				// go_to_sleep(); need another interuppt from wifi
+
 		  }
 	}
 }
@@ -714,8 +721,10 @@ void Wifi_Init(){
 }
 
 void Wifi_write_event(){
-	char wifi_buffer[100]="http_get 192.168.220.130:12345/query/id="; //server ip address
+	char wifi_buffer[100]="http_get 192.168.131.129:12345/query/id="; //server ip address
 	char itoaBuf_wifi[20];
+
+
 
 	itoa(new_event.cat_id,itoaBuf_wifi, 10);
 	strcat(wifi_buffer,itoaBuf_wifi);
@@ -724,9 +733,6 @@ void Wifi_write_event(){
 	strcat(wifi_buffer,itoaBuf_wifi);
 	strcat(wifi_buffer,"\r");
 
-//	HAL_GPIO_WritePin(WIFI_RESET_GPIO_Port, WIFI_RESET_Pin,GPIO_PIN_SET);
-//	HAL_GPIO_WritePin(WIFI_EN_GPIO_Port, WIFI_EN_Pin,GPIO_PIN_SET);
-//	HAL_Delay(1000);
 	HAL_UART_Transmit(&huart1, (uint8_t*) "stream_close 0\r", strlen("stream_close 0\r"), -1);
 	HAL_Delay(500);
 	HAL_UART_Transmit(&huart1, (uint8_t*) wifi_buffer, strlen(wifi_buffer),-1);
@@ -748,6 +754,16 @@ void SDcard_write_event(){
 	FIL fil; 		//	File handle
 	UINT bytesWrote;
 	char itoaBuf[20];
+
+	if(HAL_GPIO_ReadPin(MICROSD_DET_GPIO_Port, MICROSD_DET_Pin)){
+		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_GPIO_Pin);
+		HAL_Delay(250);
+		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_GPIO_Pin);
+		HAL_Delay(250);
+		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_GPIO_Pin);
+		HAL_Delay(250);
+		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_GPIO_Pin);
+	}
 	fres = f_mount(&FatFs, "", 0); //	1=mount now
 	if (fres != FR_OK) {
 		myprintf("f_mount error (%i)\r\n", fres);
@@ -756,7 +772,7 @@ void SDcard_write_event(){
 
 	fres = f_open(&fil, "dataloga.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
 	if(fres == FR_OK) {
-		myprintf("I was able to open 'datalog8.txt' for writing\r\n");
+		myprintf("I was able to open 'datalog.txt' for writing\r\n");
 	} else {
 		myprintf("f_open error (%i)\r\n", fres);
 	}
@@ -767,13 +783,11 @@ void SDcard_write_event(){
 	fres = f_write(&fil, ", Duration:", strlen(", Duration:"), &bytesWrote);
 	itoa(new_event.duration,itoaBuf, 10);
 	fres = f_write(&fil, itoaBuf, strlen(itoaBuf), &bytesWrote);
-//	fres = f_write(&fil, ", Time:", strlen(", Time:"), &bytesWrote);
-//	fres = f_write(&fil, real_world_time, strlen(real_world_time), &bytesWrote);
-
 
 	f_close(&fil);
 
 	f_mount(NULL, "", 0);
+
 }
 
 void RFID_read(){
