@@ -44,6 +44,8 @@ class forward_handler(tornado.web.RequestHandler):
             content[0] = "Minnie cat"
         elif content[0] == "2043217032":
             content[0] = "Charlie Cat"
+        elif content[0] == "2055341192":
+            content[0] = "Alpha Cat"
         elif content[0] == "0":
             return
 

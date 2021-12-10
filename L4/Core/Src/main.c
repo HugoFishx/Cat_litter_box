@@ -755,15 +755,6 @@ void SDcard_write_event(){
 	UINT bytesWrote;
 	char itoaBuf[20];
 
-	if(HAL_GPIO_ReadPin(MICROSD_DET_GPIO_Port, MICROSD_DET_Pin)){
-		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_GPIO_Pin);
-		HAL_Delay(250);
-		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_GPIO_Pin);
-		HAL_Delay(250);
-		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_GPIO_Pin);
-		HAL_Delay(250);
-		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_GPIO_Pin);
-	}
 	fres = f_mount(&FatFs, "", 0); //	1=mount now
 	if (fres != FR_OK) {
 		myprintf("f_mount error (%i)\r\n", fres);
@@ -773,16 +764,27 @@ void SDcard_write_event(){
 	fres = f_open(&fil, "dataloga.txt", FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_EXISTING|FA_OPEN_APPEND);
 	if(fres == FR_OK) {
 		myprintf("I was able to open 'datalog.txt' for writing\r\n");
+		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin);
+		HAL_Delay(250);
+		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin);
+		HAL_Delay(250);
+		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin);
+		HAL_Delay(250);
+		HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin);
 	} else {
 		myprintf("f_open error (%i)\r\n", fres);
 	}
 
-	fres = f_write(&fil, "\r\nID:", strlen("\r\nID:"), &bytesWrote);
-	itoa(new_event.cat_id,itoaBuf, 10);
-	fres = f_write(&fil, itoaBuf, strlen(itoaBuf), &bytesWrote);
-	fres = f_write(&fil, ", Duration:", strlen(", Duration:"), &bytesWrote);
-	itoa(new_event.duration,itoaBuf, 10);
-	fres = f_write(&fil, itoaBuf, strlen(itoaBuf), &bytesWrote);
+	if(new_event.cat_id){
+		fres = f_write(&fil, "\r\nID:", strlen("\r\nID:"), &bytesWrote);
+		itoa(new_event.cat_id,itoaBuf, 10);
+		fres = f_write(&fil, itoaBuf, strlen(itoaBuf), &bytesWrote);
+		fres = f_write(&fil, ", Duration:", strlen(", Duration:"), &bytesWrote);
+		itoa(new_event.duration,itoaBuf, 10);
+		fres = f_write(&fil, itoaBuf, strlen(itoaBuf), &bytesWrote);
+	}
+
+
 
 	f_close(&fil);
 
@@ -793,7 +795,9 @@ void SDcard_write_event(){
 void RFID_read(){
 	unsigned int rfid_timeout = 100;
 
-	if ( !PICC_IsNewCardPresent())	return;
+	if ( !PICC_IsNewCardPresent())	{
+		return;
+	}
 	while ( ! PICC_ReadCardSerial(&uid) && rfid_timeout--);
 
 	if (rfid_timeout == 0) {
@@ -804,7 +808,11 @@ void RFID_read(){
 	for(int i = 0; i < 4; i++) {
 		RFID_tag.content[i] = uid.uidByte[i+1];
 	}
+	cat_in_flag=0;
 	myprintf("Tag DETECTED!\r\n");
+	HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin);
+	HAL_Delay(250);
+	HAL_GPIO_TogglePin(BATTERY_LOW_LED_GPIO_Port, BATTERY_LOW_LED_Pin);
 	HAL_Delay(100);
 }
 
